@@ -18,7 +18,6 @@ const form = useForm({
     email: props.user.email,
     password: '',
     password_confirmation: '',
-    is_admin: props.user.is_admin,
 });
 
 const submit = () => form.put(route('users.update', { user: props.user.id }));

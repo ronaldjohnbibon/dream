@@ -28,6 +28,6 @@ class UserPolicy
 
     public function delete(User $actor, User $user): bool
     {
-        return $actor->is_admin && ! $actor->is($user);
+        return $actor->is_admin && $user->is_admin && ! $actor->is($user);
     }
 }

@@ -14,7 +14,8 @@ const mainNavItems = computed<NavItem[]>(() => {
     const items: NavItem[] = [{ title: 'Dashboard', href: route('dashboard'), icon: LayoutGrid }];
 
     if (page.props.auth.user?.is_admin) {
-        items.push({ title: 'Users', href: route('users.index'), icon: Users });
+        items.push({ title: 'Administrators', href: route('users.index'), icon: Users });
+        items.push({ title: 'Customers', href: route('customers.index'), icon: Users });
         items.push({ title: 'Rice inventory', href: route('rice-products.index'), icon: PackageSearch });
     }
 

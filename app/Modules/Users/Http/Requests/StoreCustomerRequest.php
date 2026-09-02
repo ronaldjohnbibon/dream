@@ -6,7 +6,7 @@ use App\Modules\Users\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
 
-class StoreUserRequest extends FormRequest
+class StoreCustomerRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -20,7 +20,10 @@ class StoreUserRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'email' => ['nullable', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'mobile_number' => ['required', 'string', 'max:30'],
+            'complete_address' => ['required', 'string', 'max:2000'],
+            'delivery_area' => ['required', 'string', 'max:255'],
             'password' => ['required', 'confirmed', Password::defaults()],
         ];
     }

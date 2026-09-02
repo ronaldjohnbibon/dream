@@ -19,22 +19,18 @@ class UserController extends Controller
 
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
-            'account_type' => ['nullable', 'in:all,admin,user'],
             'sort' => ['nullable', 'in:name,email,created_at'],
             'direction' => ['nullable', 'in:asc,desc'],
         ]);
 
         $search = $filters['search'] ?? '';
-        $accountType = $filters['account_type'] ?? 'all';
         $sort = $filters['sort'] ?? 'created_at';
         $direction = $filters['direction'] ?? 'desc';
 
-        $users = User::query()
+        $users = User::query()->where('is_admin', true)
             ->when($search !== '', fn ($query) => $query->where(fn ($searchQuery) => $searchQuery
                 ->where('name', 'like', "%{$search}%")
                 ->orWhere('email', 'like', "%{$search}%")))
-            ->when($accountType === 'admin', fn ($query) => $query->where('is_admin', true))
-            ->when($accountType === 'user', fn ($query) => $query->where('is_admin', false))
             ->orderBy($sort, $direction)
             ->paginate(15)
             ->withQueryString()
@@ -44,7 +40,6 @@ class UserController extends Controller
             'users' => $users,
             'filters' => [
                 'search' => $search,
-                'account_type' => $accountType,
                 'sort' => $sort,
                 'direction' => $direction,
             ],
@@ -60,7 +55,7 @@ class UserController extends Controller
 
     public function store(StoreUserRequest $request): RedirectResponse
     {
-        $user = User::create($request->validated());
+        $user = User::create([...$request->validated(), 'is_admin' => true]);
 
         return to_route('users.show', $user)->with('success', 'User created successfully.');
     }
@@ -68,6 +63,7 @@ class UserController extends Controller
     public function show(User $user): Response
     {
         $this->authorize('view', $user);
+        abort_unless($user->is_admin, 404);
 
         return Inertia::render('modules/users/Show', [
             'user' => $this->userData($user),
@@ -77,6 +73,7 @@ class UserController extends Controller
     public function edit(User $user): Response
     {
         $this->authorize('update', $user);
+        abort_unless($user->is_admin, 404);
 
         return Inertia::render('modules/users/Edit', [
             'user' => $this->userData($user),
@@ -85,11 +82,8 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
+        abort_unless($user->is_admin, 404);
         $attributes = $request->validated();
-
-        if ($user->is_admin && ! $attributes['is_admin'] && User::query()->where('is_admin', true)->count() === 1) {
-            return back()->withErrors(['is_admin' => 'The last administrator cannot be demoted.']);
-        }
 
         if ($attributes['password'] === null) {
             unset($attributes['password']);
@@ -103,6 +97,7 @@ class UserController extends Controller
     public function destroy(User $user): RedirectResponse
     {
         $this->authorize('delete', $user);
+        abort_unless($user->is_admin, 404);
 
         if ($user->is_admin && User::query()->where('is_admin', true)->count() === 1) {
             return back()->withErrors(['user' => 'The last administrator cannot be deleted.']);

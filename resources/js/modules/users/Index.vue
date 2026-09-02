@@ -52,25 +52,20 @@ const deleteUser = () => {
 </script>
 
 <template>
-    <Head title="Users" />
+    <Head title="Administrators" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
             <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
-                    <h1 class="text-2xl font-semibold tracking-tight">Users</h1>
-                    <p class="mt-1 text-sm text-muted-foreground">Manage application accounts.</p>
+                    <h1 class="text-2xl font-semibold tracking-tight">Administrators</h1>
+                    <p class="mt-1 text-sm text-muted-foreground">Manage administrator accounts.</p>
                 </div>
-                <Button as-child><Link :href="route('users.create')">Create user</Link></Button>
+                <Button as-child><Link :href="route('users.create')">Create administrator</Link></Button>
             </div>
 
-            <form class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-[1fr_180px_auto]" @submit.prevent="applyFilters">
-                <Input v-model="filters.search" placeholder="Search name or email" aria-label="Search users" />
-                <select v-model="filters.account_type" class="h-9 rounded-md border border-input bg-background px-3 text-sm">
-                    <option value="all">All account types</option>
-                    <option value="admin">Administrators</option>
-                    <option value="user">Users</option>
-                </select>
+            <form class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-[1fr_auto]" @submit.prevent="applyFilters">
+                <Input v-model="filters.search" placeholder="Search name or email" aria-label="Search administrators" />
                 <Button type="submit" variant="outline">Apply filters</Button>
             </form>
 
@@ -79,19 +74,17 @@ const deleteUser = () => {
                     <tr>
                         <th class="px-4 py-3 font-medium"><button type="button" @click="sortBy('name')">Name{{ sortIndicator('name') }}</button></th>
                         <th class="px-4 py-3 font-medium"><button type="button" @click="sortBy('email')">Email{{ sortIndicator('email') }}</button></th>
-                        <th class="px-4 py-3 font-medium">Account type</th>
                         <th class="px-4 py-3 font-medium"><button type="button" @click="sortBy('created_at')">Created{{ sortIndicator('created_at') }}</button></th>
                         <th class="px-4 py-3 text-right font-medium">Actions</th>
                     </tr>
                 </template>
                 <template #body>
                     <tr v-if="users.data.length === 0">
-                        <td colspan="5" class="px-4 py-10 text-center text-muted-foreground">No users match the current filters.</td>
+                        <td colspan="4" class="px-4 py-10 text-center text-muted-foreground">No administrators match the current filters.</td>
                     </tr>
                     <tr v-for="user in users.data" :key="user.id">
                         <td class="px-4 py-3 font-medium">{{ user.name }}</td>
                         <td class="px-4 py-3 text-muted-foreground">{{ user.email }}</td>
-                        <td class="px-4 py-3"><span class="rounded-full bg-muted px-2 py-1 text-xs">{{ user.is_admin ? 'Administrator' : 'User' }}</span></td>
                         <td class="px-4 py-3 text-muted-foreground">{{ dateFormatter.format(new Date(user.created_at)) }}</td>
                         <td class="px-4 py-3 text-right">
                             <div class="flex justify-end gap-2">

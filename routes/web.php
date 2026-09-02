@@ -3,6 +3,7 @@
 use App\Http\Controllers\DashboardController;
 use App\Modules\Inventory\Http\Controllers\RiceProductController;
 use App\Modules\Inventory\Http\Controllers\StockMovementController;
+use App\Modules\Users\Http\Controllers\CustomerController;
 use App\Modules\Users\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,6 +17,10 @@ Route::get('dashboard', DashboardController::class)->middleware('auth')->name('d
 
 Route::middleware('auth')->group(function () {
     Route::resource('users', UserController::class);
+
+    Route::resource('customers', CustomerController::class)->except('destroy');
+    Route::patch('customers/{customer}/suspend', [CustomerController::class, 'suspend'])->name('customers.suspend');
+    Route::patch('customers/{customer}/reactivate', [CustomerController::class, 'reactivate'])->name('customers.reactivate');
 
     Route::resource('rice-products', RiceProductController::class)
         ->except('destroy')

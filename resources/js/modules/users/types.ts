@@ -14,12 +14,10 @@ export interface UserFormData {
     email: string;
     password: string;
     password_confirmation: string;
-    is_admin: boolean;
 }
 
 export interface UserFilters {
     search: string;
-    account_type: 'all' | 'admin' | 'user';
     sort: 'name' | 'email' | 'created_at';
     direction: 'asc' | 'desc';
 }
