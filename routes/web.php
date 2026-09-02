@@ -6,6 +6,7 @@ use App\Modules\Inventory\Http\Controllers\StockMovementController;
 use App\Modules\Orders\Http\Controllers\GcashPaymentController;
 use App\Modules\Orders\Http\Controllers\OrderController;
 use App\Modules\Orders\Http\Controllers\PautangController;
+use App\Modules\Points\Http\Controllers\PointsController;
 use App\Modules\Users\Http\Controllers\CustomerController;
 use App\Modules\Users\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -24,6 +25,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('customers', CustomerController::class)->except('destroy');
     Route::patch('customers/{customer}/suspend', [CustomerController::class, 'suspend'])->name('customers.suspend');
     Route::patch('customers/{customer}/reactivate', [CustomerController::class, 'reactivate'])->name('customers.reactivate');
+    Route::get('customers/{customer}/points', [PointsController::class, 'show'])->name('customers.points.show');
+    Route::post('customers/{customer}/points/adjustments', [PointsController::class, 'adjust'])->name('customers.points.adjustments.store');
 
     Route::resource('rice-products', RiceProductController::class)
         ->except('destroy')
@@ -44,6 +47,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('gcash-payments/{gcashPayment}/reject', [GcashPaymentController::class, 'reject'])->name('gcash-payments.reject');
 
     Route::get('pautang', [PautangController::class, 'index'])->name('pautang.index');
+    Route::get('points', [PointsController::class, 'mine'])->name('points.show');
 });
 
 require __DIR__.'/settings.php';

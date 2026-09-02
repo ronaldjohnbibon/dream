@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Users\Http\Requests\StoreCustomerRequest;
 use App\Modules\Users\Http\Requests\UpdateCustomerRequest;
 use App\Modules\Users\Models\User;
+use App\Modules\Points\Services\PointsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -13,6 +14,10 @@ use Inertia\Response;
 
 class CustomerController extends Controller
 {
+    public function __construct(private readonly PointsService $points)
+    {
+    }
+
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', User::class);
@@ -160,7 +165,7 @@ class CustomerController extends Controller
             'on_time_payments' => 0,
             'late_payments' => 0,
             'outstanding_balance' => (float) (clone $activePautang)->sum('final_amount'),
-            'current_points' => 0,
+            'current_points' => $this->points->currentBalance($customer),
         ];
     }
 }

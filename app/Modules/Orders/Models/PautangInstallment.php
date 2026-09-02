@@ -2,6 +2,7 @@
 
 namespace App\Modules\Orders\Models;
 
+use App\Modules\Points\Models\PointsLedger;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -47,6 +48,12 @@ class PautangInstallment extends Model
     public function gcashPayments(): HasMany
     {
         return $this->hasMany(GcashPayment::class);
+    }
+
+    /** @return HasMany<PointsLedger, $this> */
+    public function pointsLedgers(): HasMany
+    {
+        return $this->hasMany(PointsLedger::class);
     }
 
     public function currentStatus(): string

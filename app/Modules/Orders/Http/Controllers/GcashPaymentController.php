@@ -9,6 +9,7 @@ use App\Modules\Orders\Http\Requests\StoreGcashPaymentRequest;
 use App\Modules\Orders\Models\GcashPayment;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\PautangInstallment;
+use App\Modules\Points\Services\PointsService;
 use App\Modules\Settings\Models\GcashSetting;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
@@ -22,6 +23,10 @@ use Inertia\Response;
 
 class GcashPaymentController extends Controller
 {
+    public function __construct(private readonly PointsService $points)
+    {
+    }
+
     public function index(Request $request): Response
     {
         $this->ensureAdmin($request);
@@ -185,6 +190,10 @@ class GcashPaymentController extends Controller
                     'reviewed_by' => $request->user()->id,
                     'reviewed_at' => now(),
                 ]);
+
+                if ($installment) {
+                    $this->points->awardOnTimeInstallmentPayment($order, $installment, $payment);
+                }
             });
         } catch (QueryException $exception) {
             if ((string) $exception->getCode() === '23000') {

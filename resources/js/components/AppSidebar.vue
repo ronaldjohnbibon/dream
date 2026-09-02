@@ -4,7 +4,7 @@ import NavUser from '@/components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import type { NavItem, SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { CreditCard, HandCoins, LayoutGrid, PackageSearch, ShoppingCart, Users } from 'lucide-vue-next';
+import { Award, CreditCard, HandCoins, LayoutGrid, PackageSearch, ShoppingCart, Users } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';
 
@@ -23,6 +23,7 @@ const mainNavItems = computed<NavItem[]>(() => {
     } else {
         items.push({ title: 'My orders', href: route('orders.index'), icon: ShoppingCart });
         items.push({ title: 'My pautang', href: route('pautang.index'), icon: HandCoins });
+        items.push({ title: 'My points', href: route('points.show'), icon: Award });
     }
 
     return items;

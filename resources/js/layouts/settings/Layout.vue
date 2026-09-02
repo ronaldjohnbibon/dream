@@ -21,6 +21,7 @@ const sidebarNavItems = computed<NavItem[]>(() => {
 
     if (page.props.auth.user?.is_admin) {
         items.push({ title: 'GCash', href: '/settings/gcash' });
+        items.push({ title: 'Points', href: '/settings/points' });
     }
 
     return items;

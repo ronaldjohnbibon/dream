@@ -69,6 +69,7 @@ const reactivateCustomer = () => {
                     <p class="mt-1 text-sm text-muted-foreground">Customer profile</p>
                 </div>
                 <div class="flex gap-2">
+                    <Button variant="outline" as-child><Link :href="route('customers.points.show', { customer: customer.id })">View points</Link></Button>
                     <Button v-if="customer.account_status !== 'suspended'" variant="destructive" @click="suspendDialogOpen = true">Suspend customer</Button>
                     <Button v-else variant="outline" :disabled="reactivating" @click="reactivateCustomer">Reactivate customer</Button>
                     <Button as-child><Link :href="route('customers.edit', { customer: customer.id })">Edit customer</Link></Button>

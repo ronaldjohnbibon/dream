@@ -4,6 +4,7 @@ namespace App\Modules\Users\Models;
 
 use App\Modules\Orders\Models\GcashPayment;
 use App\Modules\Orders\Models\Order;
+use App\Modules\Points\Models\PointsLedger;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -63,5 +64,11 @@ class User extends Authenticatable
     public function gcashPayments(): HasMany
     {
         return $this->hasMany(GcashPayment::class, 'customer_id');
+    }
+
+    /** @return HasMany<PointsLedger, $this> */
+    public function pointsLedgers(): HasMany
+    {
+        return $this->hasMany(PointsLedger::class, 'customer_id');
     }
 }

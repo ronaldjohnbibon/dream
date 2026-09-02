@@ -9,6 +9,7 @@ use App\Modules\Orders\Http\Requests\UpdateOrderRequest;
 use App\Modules\Orders\Models\GcashPayment;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\PautangInstallment;
+use App\Modules\Points\Services\PointsService;
 use App\Modules\Users\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,10 @@ use Inertia\Response;
 
 class OrderController extends Controller
 {
+    public function __construct(private readonly PointsService $points)
+    {
+    }
+
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', Order::class);
@@ -281,6 +286,10 @@ class OrderController extends Controller
                 'payment_status' => $paymentStatus,
                 'delivery_date' => $attributes['delivery_date'] ?? null,
             ]);
+
+            if ($lockedOrder->order_status === 'completed') {
+                $this->points->awardCompletedOrder($lockedOrder);
+            }
         });
 
         return to_route('orders.show', $order)->with('success', 'Order updated successfully.');
