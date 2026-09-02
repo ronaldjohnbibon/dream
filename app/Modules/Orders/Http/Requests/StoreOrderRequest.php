@@ -20,6 +20,7 @@ class StoreOrderRequest extends FormRequest
             'rice_product_id' => ['required', 'integer', 'exists:rice_products,id'],
             'quantity' => ['required', 'integer', 'min:1'],
             'payment_type' => ['required', 'string', Rule::in(Order::PAYMENT_TYPES)],
+            'points_to_use' => ['nullable', 'integer', 'min:0'],
             'delivery_address' => ['required', 'string', 'max:2000'],
             'delivery_area' => ['required', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:2000'],

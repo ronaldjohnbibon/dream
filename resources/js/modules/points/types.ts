@@ -1,6 +1,6 @@
 import type { PaginationLink } from '@/components/shared/PaginationLinks.vue';
 
-export type PointsLedgerType = 'order_reward' | 'on_time_payment_bonus' | 'redemption' | 'admin_adjustment';
+export type PointsLedgerType = 'order_reward' | 'on_time_payment_bonus' | 'redemption' | 'redemption_refund' | 'admin_adjustment';
 
 export interface PointsLedgerEntry {
     id: number;

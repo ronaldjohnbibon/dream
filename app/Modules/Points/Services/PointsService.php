@@ -99,4 +99,44 @@ class PointsService
             'transaction_date' => today(),
         ]);
     }
+
+    public function redeemOrder(Order $order, int $points): PointsLedger
+    {
+        return PointsLedger::query()->firstOrCreate(
+            [
+                'type' => 'redemption',
+                'source_type' => 'order',
+                'source_id' => $order->id,
+            ],
+            [
+                'customer_id' => $order->customer_id,
+                'order_id' => $order->id,
+                'points' => -$points,
+                'description' => "Points redeemed for order {$order->order_number}.",
+                'transaction_date' => today(),
+            ],
+        );
+    }
+
+    public function refundOrderRedemption(Order $order): ?PointsLedger
+    {
+        if ($order->points_used <= 0) {
+            return null;
+        }
+
+        return PointsLedger::query()->firstOrCreate(
+            [
+                'type' => 'redemption_refund',
+                'source_type' => 'order',
+                'source_id' => $order->id,
+            ],
+            [
+                'customer_id' => $order->customer_id,
+                'order_id' => $order->id,
+                'points' => $order->points_used,
+                'description' => "Points returned for cancelled order {$order->order_number}.",
+                'transaction_date' => today(),
+            ],
+        );
+    }
 }

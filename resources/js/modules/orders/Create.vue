@@ -7,11 +7,12 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import type { AvailableRiceProduct } from '@/modules/orders/types';
 import type { BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 
 const props = defineProps<{
     products: AvailableRiceProduct[];
     customer: { complete_address: string | null; delivery_area: string | null };
+    points: { balance: number; peso_per_point: string };
 }>();
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -22,13 +23,45 @@ const form = useForm({
     rice_product_id: null as number | null,
     quantity: 1,
     payment_type: 'cash' as 'cash' | 'pautang',
+    points_to_use: 0,
     delivery_address: props.customer.complete_address ?? '',
     delivery_area: props.customer.delivery_area ?? '',
     notes: '',
 });
 const selectedProduct = computed(() => props.products.find((product) => product.id === form.rice_product_id) ?? null);
-const subtotal = computed(() => (selectedProduct.value ? Number(selectedProduct.value.selling_price) * form.quantity : 0));
+const subtotal = computed(() => (selectedProduct.value ? Number((Number(selectedProduct.value.selling_price) * form.quantity).toFixed(2)) : 0));
 const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
+const pesoPerPoint = computed(() => Number(props.points.peso_per_point));
+const pesoEquivalent = computed(() => props.points.balance * pesoPerPoint.value);
+const maximumPointsToUse = computed(() => {
+    if (form.payment_type !== 'cash' || pesoPerPoint.value <= 0 || subtotal.value <= 0) {
+        return 0;
+    }
+
+    return Math.min(props.points.balance, Math.floor((subtotal.value + Number.EPSILON) / pesoPerPoint.value));
+});
+const pointsToUse = computed(() => Math.max(0, Math.min(Math.floor(Number(form.points_to_use) || 0), maximumPointsToUse.value)));
+const pointsDiscount = computed(() => Number((pointsToUse.value * pesoPerPoint.value).toFixed(2)));
+const finalAmount = computed(() => Math.max(0, Number((subtotal.value - pointsDiscount.value).toFixed(2))));
+const finalAmountWithMaximumPoints = computed(() => Math.max(0, Number((subtotal.value - (maximumPointsToUse.value * pesoPerPoint.value)).toFixed(2))));
+const canPayFullyWithPoints = computed(() => selectedProduct.value !== null
+    && form.quantity === 1
+    && maximumPointsToUse.value > 0
+    && finalAmountWithMaximumPoints.value === 0);
+
+watch([() => form.payment_type, maximumPointsToUse], () => {
+    if (form.payment_type === 'pautang') {
+        form.points_to_use = 0;
+    } else if (form.points_to_use > maximumPointsToUse.value) {
+        form.points_to_use = maximumPointsToUse.value;
+    }
+});
+
+const payFullyUsingPoints = () => {
+    if (canPayFullyWithPoints.value) {
+        form.points_to_use = maximumPointsToUse.value;
+    }
+};
 
 const submit = () => {
     form.post(route('orders.store'));
@@ -72,6 +105,31 @@ const submit = () => {
                             <div class="flex flex-wrap justify-between gap-2"><span>Unit price</span><span class="font-medium">{{ currency.format(Number(selectedProduct.selling_price)) }}</span></div>
                             <div class="mt-2 flex flex-wrap justify-between gap-2 text-base"><span class="font-medium">Subtotal</span><span class="font-semibold">{{ currency.format(subtotal) }}</span></div>
                         </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Redeem points</CardTitle>
+                        <CardDescription>Points can be used on Cash orders and are converted using the current rate.</CardDescription>
+                    </CardHeader>
+                    <CardContent class="space-y-5">
+                        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            <div class="rounded-md border bg-muted/30 p-4"><p class="text-sm text-muted-foreground">Available points</p><p class="mt-1 text-xl font-semibold">{{ points.balance }}</p></div>
+                            <div class="rounded-md border bg-muted/30 p-4"><p class="text-sm text-muted-foreground">Peso equivalent</p><p class="mt-1 text-xl font-semibold">{{ currency.format(pesoEquivalent) }}</p></div>
+                            <div class="rounded-md border bg-muted/30 p-4"><p class="text-sm text-muted-foreground">Discount</p><p class="mt-1 text-xl font-semibold">{{ currency.format(pointsDiscount) }}</p></div>
+                            <div class="rounded-md border bg-muted/30 p-4"><p class="text-sm text-muted-foreground">Final amount</p><p class="mt-1 text-xl font-semibold">{{ currency.format(finalAmount) }}</p></div>
+                        </div>
+                        <div class="grid gap-4 sm:grid-cols-[minmax(0,240px)_1fr] sm:items-end">
+                            <FormField id="points-to-use" label="Points to use" :error="form.errors.points_to_use">
+                                <Input id="points-to-use" v-model.number="form.points_to_use" type="number" min="0" :max="maximumPointsToUse" step="1" :disabled="form.payment_type === 'pautang' || maximumPointsToUse === 0" />
+                            </FormField>
+                            <div class="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                                <span>Up to {{ maximumPointsToUse }} points can be used on this order.</span>
+                                <Button v-if="canPayFullyWithPoints" type="button" size="sm" variant="outline" @click="payFullyUsingPoints">Pay Fully Using Points</Button>
+                            </div>
+                        </div>
+                        <p v-if="form.payment_type === 'pautang'" class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">Points redemption is available for Cash orders only.</p>
                     </CardContent>
                 </Card>
 

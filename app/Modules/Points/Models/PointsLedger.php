@@ -17,6 +17,7 @@ class PointsLedger extends Model
         'order_reward',
         'on_time_payment_bonus',
         'redemption',
+        'redemption_refund',
         'admin_adjustment',
     ];
 

@@ -35,6 +35,7 @@ const typeLabel = (type: PointsLedgerType) => ({
     order_reward: 'Order Reward',
     on_time_payment_bonus: 'On-Time Payment Bonus',
     redemption: 'Redemption',
+    redemption_refund: 'Redemption Refund',
     admin_adjustment: 'Admin Adjustment',
 })[type];
 

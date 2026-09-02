@@ -96,6 +96,10 @@ class OrderController extends Controller
                 'complete_address' => $customer->complete_address,
                 'delivery_area' => $customer->delivery_area,
             ],
+            'points' => [
+                'balance' => $this->points->currentBalance($customer),
+                'peso_per_point' => $this->points->settings()->peso_per_point,
+            ],
         ]);
     }
 
@@ -114,6 +118,7 @@ class OrderController extends Controller
 
             $product = RiceProduct::query()->lockForUpdate()->findOrFail($attributes['rice_product_id']);
             $quantity = $attributes['quantity'];
+            $pointsToUse = (int) ($attributes['points_to_use'] ?? 0);
 
             if (! $product->is_active) {
                 throw ValidationException::withMessages([
@@ -128,6 +133,12 @@ class OrderController extends Controller
             }
 
             if ($attributes['payment_type'] === 'pautang') {
+                if ($pointsToUse > 0) {
+                    throw ValidationException::withMessages([
+                        'points_to_use' => 'Points can only be redeemed on cash orders.',
+                    ]);
+                }
+
                 if ($quantity !== 1) {
                     throw ValidationException::withMessages([
                         'quantity' => 'Pautang orders are limited to one sack.',
@@ -149,7 +160,39 @@ class OrderController extends Controller
             }
 
             $unitPrice = (float) $product->selling_price;
-            $subtotal = number_format($unitPrice * $quantity, 2, '.', '');
+            $subtotalAmount = round($unitPrice * $quantity, 2);
+            $subtotal = number_format($subtotalAmount, 2, '.', '');
+            $pointsDiscountAmount = 0.0;
+
+            if ($pointsToUse > 0) {
+                $availablePoints = $this->points->currentBalance($customer);
+                if ($pointsToUse > $availablePoints) {
+                    throw ValidationException::withMessages([
+                        'points_to_use' => 'You cannot use more points than your available balance.',
+                    ]);
+                }
+
+                $pesoPerPoint = (float) $this->points->settings()->peso_per_point;
+                if ($pesoPerPoint <= 0) {
+                    throw ValidationException::withMessages([
+                        'points_to_use' => 'Points redemption is not currently available.',
+                    ]);
+                }
+
+                $maximumPointsForOrder = $pesoPerPoint > 0
+                    ? (int) floor(($subtotalAmount + 0.000001) / $pesoPerPoint)
+                    : 0;
+
+                if ($pointsToUse > $maximumPointsForOrder) {
+                    throw ValidationException::withMessages([
+                        'points_to_use' => 'Points used cannot reduce the order total below zero.',
+                    ]);
+                }
+
+                $pointsDiscountAmount = round($pointsToUse * $pesoPerPoint, 2);
+            }
+
+            $finalAmount = max(0, round($subtotalAmount - $pointsDiscountAmount, 2));
             $previousStock = $product->available_stock;
             $newStock = $previousStock - $quantity;
 
@@ -159,21 +202,25 @@ class OrderController extends Controller
                 'quantity' => $quantity,
                 'unit_price' => number_format($unitPrice, 2, '.', ''),
                 'subtotal' => $subtotal,
-                'points_used' => 0,
-                'points_discount' => 0,
-                'final_amount' => $subtotal,
+                'points_used' => $pointsToUse,
+                'points_discount' => number_format($pointsDiscountAmount, 2, '.', ''),
+                'final_amount' => number_format($finalAmount, 2, '.', ''),
                 'amount_paid' => '0.00',
-                'remaining_balance' => $subtotal,
+                'remaining_balance' => number_format($finalAmount, 2, '.', ''),
                 'payment_type' => $attributes['payment_type'],
                 'delivery_address' => $attributes['delivery_address'],
                 'delivery_area' => $attributes['delivery_area'],
                 'order_date' => today(),
                 'order_status' => 'pending',
-                'payment_status' => 'unpaid',
+                'payment_status' => $finalAmount <= 0 ? 'paid' : 'unpaid',
                 'notes' => $attributes['notes'] ?? null,
             ]);
 
             $order->update(['order_number' => 'ORD-'.str_pad((string) $order->id, 6, '0', STR_PAD_LEFT)]);
+            if ($pointsToUse > 0) {
+                $this->points->redeemOrder($order, $pointsToUse);
+            }
+
             $product->update([
                 'available_stock' => $newStock,
                 'reserved_stock' => $product->reserved_stock + $quantity,
@@ -259,6 +306,8 @@ class OrderController extends Controller
                         'notes' => "Order {$lockedOrder->order_number} cancelled.",
                         'user_id' => $request->user()->id,
                     ]);
+                    User::query()->lockForUpdate()->findOrFail($lockedOrder->customer_id);
+                    $this->points->refundOrderRedemption($lockedOrder);
                 }
 
                 if ($isDelivered) {
