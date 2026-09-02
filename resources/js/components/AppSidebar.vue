@@ -4,7 +4,7 @@ import NavUser from '@/components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import type { NavItem, SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { LayoutGrid, PackageSearch, Users } from 'lucide-vue-next';
+import { LayoutGrid, PackageSearch, ShoppingCart, Users } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';
 
@@ -17,6 +17,9 @@ const mainNavItems = computed<NavItem[]>(() => {
         items.push({ title: 'Administrators', href: route('users.index'), icon: Users });
         items.push({ title: 'Customers', href: route('customers.index'), icon: Users });
         items.push({ title: 'Rice inventory', href: route('rice-products.index'), icon: PackageSearch });
+        items.push({ title: 'Orders', href: route('orders.index'), icon: ShoppingCart });
+    } else {
+        items.push({ title: 'My orders', href: route('orders.index'), icon: ShoppingCart });
     }
 
     return items;

@@ -72,7 +72,7 @@ class CustomerController extends Controller
 
         return Inertia::render('modules/customers/Show', [
             'customer' => $this->customerData($customer),
-            'summary' => $this->summaryData(),
+            'summary' => $this->summaryData($customer),
         ]);
     }
 
@@ -146,15 +146,20 @@ class CustomerController extends Controller
     /**
      * @return array{total_orders: int, completed_pautang: int, active_pautang: int, on_time_payments: int, late_payments: int, outstanding_balance: int, current_points: int}
      */
-    private function summaryData(): array
+    private function summaryData(User $customer): array
     {
+        $pautangOrders = $customer->orders()->where('payment_type', 'pautang');
+        $activePautang = (clone $pautangOrders)
+            ->where('payment_status', '!=', 'paid')
+            ->where('order_status', '!=', 'cancelled');
+
         return [
-            'total_orders' => 0,
-            'completed_pautang' => 0,
-            'active_pautang' => 0,
+            'total_orders' => $customer->orders()->count(),
+            'completed_pautang' => (clone $pautangOrders)->where('payment_status', 'paid')->count(),
+            'active_pautang' => (clone $activePautang)->count(),
             'on_time_payments' => 0,
             'late_payments' => 0,
-            'outstanding_balance' => 0,
+            'outstanding_balance' => (float) (clone $activePautang)->sum('final_amount'),
             'current_points' => 0,
         ];
     }

@@ -3,6 +3,7 @@
 use App\Http\Controllers\DashboardController;
 use App\Modules\Inventory\Http\Controllers\RiceProductController;
 use App\Modules\Inventory\Http\Controllers\StockMovementController;
+use App\Modules\Orders\Http\Controllers\OrderController;
 use App\Modules\Users\Http\Controllers\CustomerController;
 use App\Modules\Users\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -29,6 +30,8 @@ Route::middleware('auth')->group(function () {
     Route::get('rice-products/{riceProduct}/stock', [RiceProductController::class, 'createStockEntry'])->name('rice-products.stock.create');
     Route::post('rice-products/{riceProduct}/stock', [RiceProductController::class, 'storeStockEntry'])->name('rice-products.stock.store');
     Route::get('inventory-movements', [StockMovementController::class, 'index'])->name('inventory-movements.index');
+
+    Route::resource('orders', OrderController::class)->only(['index', 'create', 'store', 'show', 'update']);
 });
 
 require __DIR__.'/settings.php';
