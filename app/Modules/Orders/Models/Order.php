@@ -81,4 +81,10 @@ class Order extends Model
     {
         return $this->hasMany(StockMovement::class);
     }
+
+    /** @return HasMany<PautangInstallment, $this> */
+    public function pautangInstallments(): HasMany
+    {
+        return $this->hasMany(PautangInstallment::class)->orderBy('installment_number');
+    }
 }

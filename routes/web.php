@@ -4,6 +4,7 @@ use App\Http\Controllers\DashboardController;
 use App\Modules\Inventory\Http\Controllers\RiceProductController;
 use App\Modules\Inventory\Http\Controllers\StockMovementController;
 use App\Modules\Orders\Http\Controllers\OrderController;
+use App\Modules\Orders\Http\Controllers\PautangController;
 use App\Modules\Users\Http\Controllers\CustomerController;
 use App\Modules\Users\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -32,6 +33,10 @@ Route::middleware('auth')->group(function () {
     Route::get('inventory-movements', [StockMovementController::class, 'index'])->name('inventory-movements.index');
 
     Route::resource('orders', OrderController::class)->only(['index', 'create', 'store', 'show', 'update']);
+
+    Route::get('pautang', [PautangController::class, 'index'])->name('pautang.index');
+    Route::patch('pautang-installments/{pautangInstallment}/payment', [PautangController::class, 'recordPayment'])
+        ->name('pautang-installments.payment');
 });
 
 require __DIR__.'/settings.php';

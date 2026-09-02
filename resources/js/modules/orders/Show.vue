@@ -2,6 +2,7 @@
 import FormField from '@/components/shared/FormField.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/AppLayout.vue';
 import {
     orderStatusLabels,
@@ -9,11 +10,12 @@ import {
     paymentTypeLabels,
     type Order,
     type OrderStatus,
+    type PautangInstallmentStatus,
     type PaymentStatus,
 } from '@/modules/orders/types';
 import type { BreadcrumbItem } from '@/types';
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { computed, reactive, ref, watch } from 'vue';
 
 const props = defineProps<{
     order: Order;
@@ -32,6 +34,21 @@ const form = useForm({
 });
 const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
 const paymentStatuses = Object.keys(paymentStatusLabels) as PaymentStatus[];
+const isPautang = computed(() => props.order.payment_type === 'pautang');
+const paymentAmounts = reactive<Record<number, string>>({});
+const paymentErrors = reactive<Record<number, string>>({});
+const payingInstallmentId = ref<number | null>(null);
+watch(
+    () => props.order.pautang_installments,
+    (installments) => {
+        for (const installment of installments) {
+            if (paymentAmounts[installment.id] === undefined) {
+                paymentAmounts[installment.id] = '';
+            }
+        }
+    },
+    { immediate: true },
+);
 const orderStatusClass = computed(() => ({
     pending: 'bg-amber-100 text-amber-800',
     confirmed: 'bg-sky-100 text-sky-800',
@@ -45,6 +62,35 @@ const orderStatusClass = computed(() => ({
 const updateOrder = () => {
     form.patch(route('orders.update', { order: props.order.id }));
 };
+const recordPayment = (installmentId: number) => {
+    payingInstallmentId.value = installmentId;
+    paymentErrors[installmentId] = '';
+    router.patch(
+        route('pautang-installments.payment', { pautangInstallment: installmentId }),
+        { amount: paymentAmounts[installmentId] },
+        {
+            preserveScroll: true,
+            onError: (errors) => {
+                paymentErrors[installmentId] = errors.amount ?? 'Unable to record this payment.';
+            },
+            onFinish: () => {
+                payingInstallmentId.value = null;
+            },
+        },
+    );
+};
+const installmentStatusClass = (status: PautangInstallmentStatus) => ({
+    pending: 'bg-amber-100 text-amber-800',
+    partially_paid: 'bg-sky-100 text-sky-800',
+    paid: 'bg-emerald-100 text-emerald-800',
+    overdue: 'bg-red-100 text-red-800',
+})[status];
+const installmentStatusLabel = (status: PautangInstallmentStatus) => ({
+    pending: 'Pending',
+    partially_paid: 'Partially Paid',
+    paid: 'Paid',
+    overdue: 'Overdue',
+})[status];
 </script>
 
 <template>
@@ -90,6 +136,27 @@ const updateOrder = () => {
                 </Card>
             </div>
 
+            <Card v-if="isPautang && order.pautang_installments.length > 0">
+                <CardHeader><CardTitle>Pautang installments</CardTitle></CardHeader>
+                <CardContent class="space-y-4">
+                    <div v-for="installment in order.pautang_installments" :key="installment.id" class="rounded-lg border p-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3"><p class="font-medium">Give {{ installment.installment_number }}</p><span class="rounded-full px-2 py-1 text-xs" :class="installmentStatusClass(installment.status)">{{ installmentStatusLabel(installment.status) }}</span></div>
+                        <div class="mt-4 grid gap-3 text-sm sm:grid-cols-5">
+                            <div><p class="text-muted-foreground">Amount due</p><p class="font-medium">{{ currency.format(Number(installment.amount_due)) }}</p></div>
+                            <div><p class="text-muted-foreground">Due date</p><p class="font-medium">{{ installment.due_date }}</p></div>
+                            <div><p class="text-muted-foreground">Amount paid</p><p class="font-medium">{{ currency.format(Number(installment.amount_paid)) }}</p></div>
+                            <div><p class="text-muted-foreground">Remaining</p><p class="font-medium">{{ currency.format(Number(installment.remaining_balance)) }}</p></div>
+                            <div><p class="text-muted-foreground">Paid date</p><p class="font-medium">{{ installment.paid_date ?? '—' }}</p></div>
+                        </div>
+                        <form v-if="canManage && Number(installment.remaining_balance) > 0" class="mt-4 flex max-w-md gap-2" @submit.prevent="recordPayment(installment.id)">
+                            <Input v-model="paymentAmounts[installment.id]" type="number" min="0.01" :max="installment.remaining_balance" step="0.01" placeholder="Payment amount" required />
+                            <Button type="submit" :disabled="payingInstallmentId === installment.id">Record payment</Button>
+                        </form>
+                        <p v-if="canManage && paymentErrors[installment.id]" class="mt-2 text-sm text-destructive">{{ paymentErrors[installment.id] }}</p>
+                    </div>
+                </CardContent>
+            </Card>
+
             <Card v-if="canManage">
                 <CardHeader><CardTitle>Manage order</CardTitle></CardHeader>
                 <CardContent>
@@ -97,7 +164,7 @@ const updateOrder = () => {
                         <FormField id="order-status" label="Order status" :error="form.errors.order_status" required>
                             <select id="order-status" v-model="form.order_status" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option v-for="status in allowedStatuses" :key="status" :value="status">{{ orderStatusLabels[status] }}</option></select>
                         </FormField>
-                        <FormField id="payment-status" label="Payment status" :error="form.errors.payment_status" required>
+                        <FormField v-if="!isPautang" id="payment-status" label="Payment status" :error="form.errors.payment_status" required>
                             <select id="payment-status" v-model="form.payment_status" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option v-for="status in paymentStatuses" :key="status" :value="status">{{ paymentStatusLabels[status] }}</option></select>
                         </FormField>
                         <FormField id="delivery-date" label="Delivery date" :error="form.errors.delivery_date">

@@ -3,6 +3,7 @@ import type { PaginationLink } from '@/components/shared/PaginationLinks.vue';
 export type PaymentType = 'cash' | 'pautang';
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'out_for_delivery' | 'delivered' | 'completed' | 'cancelled';
 export type PaymentStatus = 'unpaid' | 'partially_paid' | 'paid' | 'overdue';
+export type PautangInstallmentStatus = 'pending' | 'partially_paid' | 'paid' | 'overdue';
 
 export const paymentTypeLabels: Record<PaymentType, string> = {
     cash: 'Cash',
@@ -55,8 +56,40 @@ export interface Order {
     order_status: OrderStatus;
     payment_status: PaymentStatus;
     notes: string | null;
+    pautang_installments: PautangInstallment[];
     created_at: string;
     updated_at: string;
+}
+
+export interface PautangInstallment {
+    id: number;
+    installment_number: number;
+    amount_due: string;
+    due_date: string;
+    amount_paid: string;
+    remaining_balance: string;
+    status: PautangInstallmentStatus;
+    paid_date: string | null;
+}
+
+export interface PautangSummary {
+    id: number;
+    order_number: string;
+    customer: Order['customer'] | null;
+    order_amount: string;
+    amount_paid: string;
+    remaining_balance: string;
+    next_due_date: string | null;
+    days_overdue: number;
+    installments: PautangInstallment[];
+}
+
+export interface PaginatedPautangOrders {
+    data: PautangSummary[];
+    links: PaginationLink[];
+    current_page: number;
+    last_page: number;
+    total: number;
 }
 
 export interface OrderFilters {

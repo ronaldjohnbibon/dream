@@ -7,9 +7,11 @@ use App\Modules\Inventory\Models\RiceProduct;
 use App\Modules\Orders\Http\Requests\StoreOrderRequest;
 use App\Modules\Orders\Http\Requests\UpdateOrderRequest;
 use App\Modules\Orders\Models\Order;
+use App\Modules\Orders\Models\PautangInstallment;
 use App\Modules\Users\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -188,7 +190,7 @@ class OrderController extends Controller
     {
         $this->authorize('view', $order);
 
-        $order->load(['customer:id,name,email,mobile_number', 'riceProduct:id,name,brand,sack_size']);
+        $order->load(['customer:id,name,email,mobile_number', 'riceProduct:id,name,brand,sack_size', 'pautangInstallments']);
 
         return Inertia::render('modules/orders/Show', [
             'order' => $this->orderData($order),
@@ -213,6 +215,21 @@ class OrderController extends Controller
 
             $isCancelled = $attributes['order_status'] === 'cancelled' && $lockedOrder->order_status !== 'cancelled';
             $isDelivered = $attributes['order_status'] === 'delivered' && $lockedOrder->order_status !== 'delivered';
+            $isPautangApproval = $lockedOrder->payment_type === 'pautang'
+                && $lockedOrder->order_status === 'pending'
+                && $attributes['order_status'] === 'confirmed';
+
+            if ($isCancelled && $lockedOrder->payment_type === 'pautang') {
+                $hasPayments = $lockedOrder->pautangInstallments()
+                    ->where('amount_paid', '>', 0)
+                    ->exists();
+
+                if ($hasPayments) {
+                    throw ValidationException::withMessages([
+                        'order_status' => 'A pautang order with recorded payments cannot be cancelled.',
+                    ]);
+                }
+            }
 
             if ($isCancelled || $isDelivered) {
                 $product = RiceProduct::query()->lockForUpdate()->findOrFail($lockedOrder->rice_product_id);
@@ -243,9 +260,22 @@ class OrderController extends Controller
                 }
             }
 
+            if ($isPautangApproval) {
+                $this->createPautangInstallments($lockedOrder);
+            }
+
+            if ($isCancelled && $lockedOrder->payment_type === 'pautang') {
+                $lockedOrder->pautangInstallments()->delete();
+            }
+
+            $paymentStatus = $attributes['payment_status'];
+            if ($lockedOrder->payment_type === 'pautang') {
+                $paymentStatus = $this->pautangPaymentStatus($lockedOrder->pautangInstallments()->get());
+            }
+
             $lockedOrder->update([
                 'order_status' => $attributes['order_status'],
-                'payment_status' => $attributes['payment_status'],
+                'payment_status' => $paymentStatus,
                 'delivery_date' => $attributes['delivery_date'] ?? null,
             ]);
         });
@@ -265,6 +295,51 @@ class OrderController extends Controller
             'completed' => ['completed'],
             'cancelled' => ['cancelled'],
         };
+    }
+
+    private function createPautangInstallments(Order $order): void
+    {
+        $firstAmount = round((float) $order->final_amount / 2, 2);
+        $secondAmount = round((float) $order->final_amount - $firstAmount, 2);
+
+        $order->pautangInstallments()->createMany([
+            [
+                'installment_number' => 1,
+                'amount_due' => number_format($firstAmount, 2, '.', ''),
+                'due_date' => today()->addDays(15),
+                'amount_paid' => '0.00',
+                'remaining_balance' => number_format($firstAmount, 2, '.', ''),
+                'status' => 'pending',
+            ],
+            [
+                'installment_number' => 2,
+                'amount_due' => number_format($secondAmount, 2, '.', ''),
+                'due_date' => today()->addDays(30),
+                'amount_paid' => '0.00',
+                'remaining_balance' => number_format($secondAmount, 2, '.', ''),
+                'status' => 'pending',
+            ],
+        ]);
+    }
+
+    /** @param Collection<int, PautangInstallment> $installments */
+    private function pautangPaymentStatus($installments): string
+    {
+        if ($installments->isEmpty()) {
+            return 'unpaid';
+        }
+
+        if ($installments->every(fn (PautangInstallment $installment) => (float) $installment->remaining_balance <= 0)) {
+            return 'paid';
+        }
+
+        if ($installments->contains(fn (PautangInstallment $installment) => $installment->currentStatus() === 'overdue')) {
+            return 'overdue';
+        }
+
+        return $installments->contains(fn (PautangInstallment $installment) => (float) $installment->amount_paid > 0)
+            ? 'partially_paid'
+            : 'unpaid';
     }
 
     /** @return array<string, mixed> */
@@ -297,8 +372,22 @@ class OrderController extends Controller
             'order_date' => $order->order_date->toDateString(),
             'delivery_date' => $order->delivery_date?->toDateString(),
             'order_status' => $order->order_status,
-            'payment_status' => $order->payment_status,
+            'payment_status' => $order->relationLoaded('pautangInstallments') && $order->payment_type === 'pautang' && $order->pautangInstallments->isNotEmpty()
+                ? $this->pautangPaymentStatus($order->pautangInstallments)
+                : $order->payment_status,
             'notes' => $order->notes,
+            'pautang_installments' => $order->relationLoaded('pautangInstallments')
+                ? $order->pautangInstallments->map(fn (PautangInstallment $installment) => [
+                    'id' => $installment->id,
+                    'installment_number' => $installment->installment_number,
+                    'amount_due' => $installment->amount_due,
+                    'due_date' => $installment->due_date->toDateString(),
+                    'amount_paid' => $installment->amount_paid,
+                    'remaining_balance' => $installment->remaining_balance,
+                    'status' => $installment->currentStatus(),
+                    'paid_date' => $installment->paid_date?->toDateString(),
+                ])->values()
+                : [],
             'created_at' => $order->created_at->toISOString(),
             'updated_at' => $order->updated_at->toISOString(),
         ];
