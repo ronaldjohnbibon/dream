@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Modules\Inventory\Models\RiceProduct;
+use App\Modules\Inventory\Policies\RiceProductPolicy;
 use App\Modules\Users\Console\CreateAdmin;
 use App\Modules\Users\Models\User;
 use App\Modules\Users\Policies\UserPolicy;
@@ -24,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(User::class, UserPolicy::class);
+        Gate::policy(RiceProduct::class, RiceProductPolicy::class);
 
         $this->commands([
             CreateAdmin::class,
