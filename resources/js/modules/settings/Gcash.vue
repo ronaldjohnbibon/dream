@@ -9,8 +9,8 @@ import { Head, useForm } from '@inertiajs/vue3';
 
 defineProps<{ qrCodeUrl: string | null }>();
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'GCash settings', href: route('gcash-settings.edit') }];
-const form = useForm({ qr_code: null as File | null });
-const submit = () => form.put(route('gcash-settings.update'), { forceFormData: true });
+const form = useForm({ qr_code: null as File | null, _method: 'put' });
+const submit = () => form.post(route('gcash-settings.update'), { forceFormData: true });
 </script>
 
 <template>

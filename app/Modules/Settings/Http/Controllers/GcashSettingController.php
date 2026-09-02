@@ -30,7 +30,8 @@ class GcashSettingController extends Controller
         $previousPath = $setting->qr_code_path;
         $path = $request->file('qr_code')->store('gcash-qr', 'public');
 
-        $setting->update(['qr_code_path' => $path]);
+        $setting->qr_code_path = $path;
+        $setting->save();
 
         if ($previousPath) {
             Storage::disk('public')->delete($previousPath);
