@@ -2,10 +2,13 @@
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/vue3';
+import { type NavItem, type SharedData } from '@/types';
+import { Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
-const sidebarNavItems: NavItem[] = [
+const page = usePage<SharedData>();
+const sidebarNavItems = computed<NavItem[]>(() => {
+    const items: NavItem[] = [
     {
         title: 'Profile',
         href: '/settings/profile',
@@ -14,7 +17,14 @@ const sidebarNavItems: NavItem[] = [
         title: 'Password',
         href: '/settings/password',
     },
-];
+    ];
+
+    if (page.props.auth.user?.is_admin) {
+        items.push({ title: 'GCash', href: '/settings/gcash' });
+    }
+
+    return items;
+});
 
 const currentPath = window.location.pathname;
 </script>

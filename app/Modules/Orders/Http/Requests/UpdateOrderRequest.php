@@ -21,7 +21,6 @@ class UpdateOrderRequest extends FormRequest
     {
         return [
             'order_status' => ['required', 'string', Rule::in(Order::STATUSES)],
-            'payment_status' => ['required', 'string', Rule::in(Order::PAYMENT_STATUSES)],
             'delivery_date' => ['nullable', 'date'],
         ];
     }

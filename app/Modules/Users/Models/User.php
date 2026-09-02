@@ -2,6 +2,7 @@
 
 namespace App\Modules\Users\Models;
 
+use App\Modules\Orders\Models\GcashPayment;
 use App\Modules\Orders\Models\Order;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -56,5 +57,11 @@ class User extends Authenticatable
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class, 'customer_id');
+    }
+
+    /** @return HasMany<GcashPayment, $this> */
+    public function gcashPayments(): HasMany
+    {
+        return $this->hasMany(GcashPayment::class, 'customer_id');
     }
 }

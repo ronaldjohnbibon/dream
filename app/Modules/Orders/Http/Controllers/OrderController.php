@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Inventory\Models\RiceProduct;
 use App\Modules\Orders\Http\Requests\StoreOrderRequest;
 use App\Modules\Orders\Http\Requests\UpdateOrderRequest;
+use App\Modules\Orders\Models\GcashPayment;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\PautangInstallment;
 use App\Modules\Users\Models\User;
@@ -156,6 +157,8 @@ class OrderController extends Controller
                 'points_used' => 0,
                 'points_discount' => 0,
                 'final_amount' => $subtotal,
+                'amount_paid' => '0.00',
+                'remaining_balance' => $subtotal,
                 'payment_type' => $attributes['payment_type'],
                 'delivery_address' => $attributes['delivery_address'],
                 'delivery_area' => $attributes['delivery_area'],
@@ -190,7 +193,7 @@ class OrderController extends Controller
     {
         $this->authorize('view', $order);
 
-        $order->load(['customer:id,name,email,mobile_number', 'riceProduct:id,name,brand,sack_size', 'pautangInstallments']);
+        $order->load(['customer:id,name,email,mobile_number', 'riceProduct:id,name,brand,sack_size', 'pautangInstallments', 'gcashPayments.pautangInstallment', 'gcashPayments.reviewer']);
 
         return Inertia::render('modules/orders/Show', [
             'order' => $this->orderData($order),
@@ -219,14 +222,14 @@ class OrderController extends Controller
                 && $lockedOrder->order_status === 'pending'
                 && $attributes['order_status'] === 'confirmed';
 
-            if ($isCancelled && $lockedOrder->payment_type === 'pautang') {
-                $hasPayments = $lockedOrder->pautangInstallments()
-                    ->where('amount_paid', '>', 0)
-                    ->exists();
+            if ($isCancelled) {
+                $hasPayments = $lockedOrder->gcashPayments()->exists()
+                    || ($lockedOrder->payment_type === 'pautang'
+                        && $lockedOrder->pautangInstallments()->where('amount_paid', '>', 0)->exists());
 
                 if ($hasPayments) {
                     throw ValidationException::withMessages([
-                        'order_status' => 'A pautang order with recorded payments cannot be cancelled.',
+                        'order_status' => 'An order with GCash payment submissions cannot be cancelled.',
                     ]);
                 }
             }
@@ -268,7 +271,7 @@ class OrderController extends Controller
                 $lockedOrder->pautangInstallments()->delete();
             }
 
-            $paymentStatus = $attributes['payment_status'];
+            $paymentStatus = $lockedOrder->payment_status;
             if ($lockedOrder->payment_type === 'pautang') {
                 $paymentStatus = $this->pautangPaymentStatus($lockedOrder->pautangInstallments()->get());
             }
@@ -366,6 +369,8 @@ class OrderController extends Controller
             'points_used' => $order->points_used,
             'points_discount' => $order->points_discount,
             'final_amount' => $order->final_amount,
+            'amount_paid' => $order->amount_paid,
+            'remaining_balance' => $order->remaining_balance,
             'payment_type' => $order->payment_type,
             'delivery_address' => $order->delivery_address,
             'delivery_area' => $order->delivery_area,
@@ -386,6 +391,20 @@ class OrderController extends Controller
                     'remaining_balance' => $installment->remaining_balance,
                     'status' => $installment->currentStatus(),
                     'paid_date' => $installment->paid_date?->toDateString(),
+                ])->values()
+                : [],
+            'gcash_payments' => $order->relationLoaded('gcashPayments')
+                ? $order->gcashPayments->map(fn (GcashPayment $payment) => [
+                    'id' => $payment->id,
+                    'amount' => $payment->amount,
+                    'reference_number' => $payment->reference_number,
+                    'payment_date' => $payment->payment_date->toDateString(),
+                    'status' => $payment->status,
+                    'remarks' => $payment->remarks,
+                    'reviewed_at' => $payment->reviewed_at?->toISOString(),
+                    'screenshot_url' => route('gcash-payments.screenshot', $payment),
+                    'installment_number' => $payment->pautangInstallment?->installment_number,
+                    'reviewer_name' => $payment->reviewer?->name,
                 ])->values()
                 : [],
             'created_at' => $order->created_at->toISOString(),

@@ -3,14 +3,9 @@
 namespace App\Modules\Orders\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Orders\Http\Requests\RecordPautangPaymentRequest;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\PautangInstallment;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -69,67 +64,6 @@ class PautangController extends Controller
             'pautang' => null,
             'pautangOrders' => $orders,
         ]);
-    }
-
-    public function recordPayment(RecordPautangPaymentRequest $request, PautangInstallment $pautangInstallment): RedirectResponse
-    {
-        DB::transaction(function () use ($request, $pautangInstallment): void {
-            $installment = PautangInstallment::query()->lockForUpdate()->findOrFail($pautangInstallment->id);
-            $order = Order::query()->lockForUpdate()->findOrFail($installment->order_id);
-
-            if ($order->payment_type !== 'pautang' || $order->order_status === 'cancelled') {
-                throw ValidationException::withMessages(['amount' => 'This installment can no longer receive payments.']);
-            }
-
-            $amount = round((float) $request->validated('amount'), 2);
-            $remaining = round((float) $installment->remaining_balance, 2);
-
-            if ($amount > $remaining) {
-                throw ValidationException::withMessages(['amount' => 'Payment cannot be greater than the remaining balance.']);
-            }
-
-            $amountPaid = round((float) $installment->amount_paid + $amount, 2);
-            $newRemaining = round(max(0, (float) $installment->amount_due - $amountPaid), 2);
-            $installment->fill([
-                'amount_paid' => number_format($amountPaid, 2, '.', ''),
-                'remaining_balance' => number_format($newRemaining, 2, '.', ''),
-                'paid_date' => $newRemaining === 0.0 ? today() : null,
-            ]);
-            $installment->status = $installment->currentStatus();
-            $installment->save();
-
-            $installments = $order->pautangInstallments()->lockForUpdate()->get();
-            foreach ($installments as $scheduledInstallment) {
-                $currentStatus = $scheduledInstallment->currentStatus();
-                if ($scheduledInstallment->status !== $currentStatus) {
-                    $scheduledInstallment->update(['status' => $currentStatus]);
-                }
-            }
-
-            $order->update(['payment_status' => $this->paymentStatus($installments)]);
-        });
-
-        return back()->with('success', 'Pautang payment recorded successfully.');
-    }
-
-    /** @param Collection<int, PautangInstallment> $installments */
-    private function paymentStatus($installments): string
-    {
-        if ($installments->isEmpty()) {
-            return 'unpaid';
-        }
-
-        if ($installments->every(fn (PautangInstallment $installment) => (float) $installment->remaining_balance <= 0)) {
-            return 'paid';
-        }
-
-        if ($installments->contains(fn (PautangInstallment $installment) => $installment->currentStatus() === 'overdue')) {
-            return 'overdue';
-        }
-
-        return $installments->contains(fn (PautangInstallment $installment) => (float) $installment->amount_paid > 0)
-            ? 'partially_paid'
-            : 'unpaid';
     }
 
     /** @return array<string, mixed> */

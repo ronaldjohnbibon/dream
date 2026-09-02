@@ -3,6 +3,7 @@
 use App\Http\Controllers\DashboardController;
 use App\Modules\Inventory\Http\Controllers\RiceProductController;
 use App\Modules\Inventory\Http\Controllers\StockMovementController;
+use App\Modules\Orders\Http\Controllers\GcashPaymentController;
 use App\Modules\Orders\Http\Controllers\OrderController;
 use App\Modules\Orders\Http\Controllers\PautangController;
 use App\Modules\Users\Http\Controllers\CustomerController;
@@ -34,9 +35,15 @@ Route::middleware('auth')->group(function () {
 
     Route::resource('orders', OrderController::class)->only(['index', 'create', 'store', 'show', 'update']);
 
+    Route::get('orders/{order}/gcash-payments/create', [GcashPaymentController::class, 'create'])->name('gcash-payments.create');
+    Route::post('orders/{order}/gcash-payments', [GcashPaymentController::class, 'store'])->name('gcash-payments.store');
+    Route::get('gcash-payments', [GcashPaymentController::class, 'index'])->name('gcash-payments.index');
+    Route::get('gcash-payments/{gcashPayment}/screenshot', [GcashPaymentController::class, 'screenshot'])->name('gcash-payments.screenshot');
+    Route::get('gcash-payments/{gcashPayment}', [GcashPaymentController::class, 'show'])->name('gcash-payments.show');
+    Route::patch('gcash-payments/{gcashPayment}/approve', [GcashPaymentController::class, 'approve'])->name('gcash-payments.approve');
+    Route::patch('gcash-payments/{gcashPayment}/reject', [GcashPaymentController::class, 'reject'])->name('gcash-payments.reject');
+
     Route::get('pautang', [PautangController::class, 'index'])->name('pautang.index');
-    Route::patch('pautang-installments/{pautangInstallment}/payment', [PautangController::class, 'recordPayment'])
-        ->name('pautang-installments.payment');
 });
 
 require __DIR__.'/settings.php';

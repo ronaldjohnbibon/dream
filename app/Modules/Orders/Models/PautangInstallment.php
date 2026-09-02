@@ -5,6 +5,7 @@ namespace App\Modules\Orders\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PautangInstallment extends Model
 {
@@ -40,6 +41,12 @@ class PautangInstallment extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    /** @return HasMany<GcashPayment, $this> */
+    public function gcashPayments(): HasMany
+    {
+        return $this->hasMany(GcashPayment::class);
     }
 
     public function currentStatus(): string

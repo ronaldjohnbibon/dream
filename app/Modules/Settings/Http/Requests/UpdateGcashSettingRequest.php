@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Modules\Orders\Http\Requests;
+namespace App\Modules\Settings\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class RecordPautangPaymentRequest extends FormRequest
+class UpdateGcashSettingRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -15,7 +15,7 @@ class RecordPautangPaymentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'amount' => ['required', 'numeric', 'min:0.01', 'decimal:0,2'],
+            'qr_code' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ];
     }
 }

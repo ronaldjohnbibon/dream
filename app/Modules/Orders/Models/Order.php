@@ -39,6 +39,8 @@ class Order extends Model
         'points_used',
         'points_discount',
         'final_amount',
+        'amount_paid',
+        'remaining_balance',
         'payment_type',
         'delivery_address',
         'delivery_area',
@@ -59,6 +61,8 @@ class Order extends Model
             'points_used' => 'integer',
             'points_discount' => 'decimal:2',
             'final_amount' => 'decimal:2',
+            'amount_paid' => 'decimal:2',
+            'remaining_balance' => 'decimal:2',
             'order_date' => 'date',
             'delivery_date' => 'date',
         ];
@@ -86,5 +90,11 @@ class Order extends Model
     public function pautangInstallments(): HasMany
     {
         return $this->hasMany(PautangInstallment::class)->orderBy('installment_number');
+    }
+
+    /** @return HasMany<GcashPayment, $this> */
+    public function gcashPayments(): HasMany
+    {
+        return $this->hasMany(GcashPayment::class);
     }
 }

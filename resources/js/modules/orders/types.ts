@@ -4,6 +4,7 @@ export type PaymentType = 'cash' | 'pautang';
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'out_for_delivery' | 'delivered' | 'completed' | 'cancelled';
 export type PaymentStatus = 'unpaid' | 'partially_paid' | 'paid' | 'overdue';
 export type PautangInstallmentStatus = 'pending' | 'partially_paid' | 'paid' | 'overdue';
+export type GcashPaymentStatus = 'pending_verification' | 'approved' | 'rejected';
 
 export const paymentTypeLabels: Record<PaymentType, string> = {
     cash: 'Cash',
@@ -27,6 +28,12 @@ export const paymentStatusLabels: Record<PaymentStatus, string> = {
     overdue: 'Overdue',
 };
 
+export const gcashPaymentStatusLabels: Record<GcashPaymentStatus, string> = {
+    pending_verification: 'Pending Verification',
+    approved: 'Approved',
+    rejected: 'Rejected',
+};
+
 export interface Order {
     id: number;
     order_number: string;
@@ -48,6 +55,8 @@ export interface Order {
     points_used: number;
     points_discount: string;
     final_amount: string;
+    amount_paid: string;
+    remaining_balance: string;
     payment_type: PaymentType;
     delivery_address: string;
     delivery_area: string;
@@ -57,8 +66,58 @@ export interface Order {
     payment_status: PaymentStatus;
     notes: string | null;
     pautang_installments: PautangInstallment[];
+    gcash_payments: GcashPayment[];
     created_at: string;
     updated_at: string;
+}
+
+export interface GcashPayment {
+    id: number;
+    amount: string;
+    reference_number: string;
+    payment_date: string;
+    status: GcashPaymentStatus;
+    remarks: string | null;
+    reviewed_at: string | null;
+    screenshot_url: string;
+    installment_number: number | null;
+    reviewer_name: string | null;
+}
+
+export interface AdminGcashPayment {
+    id: number;
+    amount: string;
+    reference_number: string;
+    payment_date: string;
+    status: GcashPaymentStatus;
+    remarks: string | null;
+    reviewed_at: string | null;
+    screenshot_url: string;
+    order: {
+        id: number;
+        order_number: string;
+        final_amount?: string;
+        amount_paid?: string;
+        remaining_balance?: string;
+    };
+    customer: Order['customer'];
+    installment: {
+        id: number;
+        installment_number: number;
+        amount_due?: string;
+        amount_paid?: string;
+        remaining_balance?: string;
+    } | null;
+    reviewer: { id: number; name: string } | null;
+    created_at: string;
+}
+
+export interface PaginatedGcashPayments {
+    data: AdminGcashPayment[];
+    links: PaginationLink[];
+    current_page: number;
+    last_page: number;
+    total: number;
 }
 
 export interface PautangInstallment {
