@@ -3,6 +3,9 @@
 use App\Http\Controllers\DashboardController;
 use App\Modules\Inventory\Http\Controllers\RiceProductController;
 use App\Modules\Inventory\Http\Controllers\StockMovementController;
+use App\Modules\Notifications\Http\Controllers\NotificationController;
+use App\Modules\Delivery\Http\Controllers\DeliveryAreaController;
+use App\Modules\Delivery\Http\Controllers\DeliveryController;
 use App\Modules\Orders\Http\Controllers\GcashPaymentController;
 use App\Modules\Orders\Http\Controllers\OrderController;
 use App\Modules\Orders\Http\Controllers\PautangController;
@@ -36,7 +39,11 @@ Route::middleware('auth')->group(function () {
     Route::post('rice-products/{riceProduct}/stock', [RiceProductController::class, 'storeStockEntry'])->name('rice-products.stock.store');
     Route::get('inventory-movements', [StockMovementController::class, 'index'])->name('inventory-movements.index');
 
-    Route::resource('orders', OrderController::class)->only(['index', 'create', 'store', 'show', 'update']);
+    Route::resource('orders', OrderController::class)->only(['index', 'create', 'store', 'show']);
+
+    Route::resource('deliveries', DeliveryController::class)->only(['index', 'show', 'update']);
+    Route::resource('delivery-areas', DeliveryAreaController::class)->only(['index', 'store', 'update']);
+    Route::patch('delivery-areas/{deliveryArea}/status', [DeliveryAreaController::class, 'updateStatus'])->name('delivery-areas.status');
 
     Route::get('orders/{order}/gcash-payments/create', [GcashPaymentController::class, 'create'])->name('gcash-payments.create');
     Route::post('orders/{order}/gcash-payments', [GcashPaymentController::class, 'store'])->name('gcash-payments.store');
@@ -48,6 +55,10 @@ Route::middleware('auth')->group(function () {
 
     Route::get('pautang', [PautangController::class, 'index'])->name('pautang.index');
     Route::get('points', [PointsController::class, 'mine'])->name('points.show');
+
+    Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::patch('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::patch('notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
 });
 
 require __DIR__.'/settings.php';

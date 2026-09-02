@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Modules\Notifications\NotificationData;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -43,6 +44,27 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
             ],
+            'notifications' => fn () => $this->notifications($request),
         ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function notifications(Request $request): array
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            return ['unread_count' => 0, 'recent' => []];
+        }
+
+        return [
+            'unread_count' => $user->unreadNotifications()->count(),
+            'recent' => $user->notifications()
+                ->latest()
+                ->limit(5)
+                ->get()
+                ->map(fn ($notification) => NotificationData::from($notification))
+                ->values(),
+        ];
     }
 }

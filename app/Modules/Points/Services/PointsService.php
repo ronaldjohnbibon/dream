@@ -32,18 +32,18 @@ class PointsService
             ->sum('points');
     }
 
-    public function awardCompletedOrder(Order $order): void
+    public function awardCompletedOrder(Order $order): ?PointsLedger
     {
-        if ($order->order_status !== 'completed') {
-            return;
+        if ($order->order_status !== 'delivered') {
+            return null;
         }
 
         $points = $this->settings()->completed_order_points;
         if ($points <= 0) {
-            return;
+            return null;
         }
 
-        PointsLedger::query()->firstOrCreate(
+        $ledger = PointsLedger::query()->firstOrCreate(
             [
                 'type' => 'order_reward',
                 'source_type' => 'order',
@@ -53,27 +53,29 @@ class PointsService
                 'customer_id' => $order->customer_id,
                 'order_id' => $order->id,
                 'points' => $points,
-                'description' => "Completed order {$order->order_number} reward.",
+                'description' => "Delivered order {$order->order_number} reward.",
                 'transaction_date' => today(),
             ],
         );
+
+        return $ledger->wasRecentlyCreated ? $ledger : null;
     }
 
-    public function awardOnTimeInstallmentPayment(Order $order, PautangInstallment $installment, GcashPayment $payment): void
+    public function awardOnTimeInstallmentPayment(Order $order, PautangInstallment $installment, GcashPayment $payment): ?PointsLedger
     {
         if ($order->order_status === 'cancelled'
             || $payment->status !== 'approved'
             || (float) $installment->remaining_balance > 0
             || $payment->payment_date->isAfter($installment->due_date)) {
-            return;
+            return null;
         }
 
         $points = $this->settings()->on_time_payment_points;
         if ($points <= 0) {
-            return;
+            return null;
         }
 
-        PointsLedger::query()->firstOrCreate(
+        $ledger = PointsLedger::query()->firstOrCreate(
             [
                 'type' => 'on_time_payment_bonus',
                 'source_type' => 'pautang_installment',
@@ -88,6 +90,8 @@ class PointsService
                 'transaction_date' => $payment->payment_date,
             ],
         );
+
+        return $ledger->wasRecentlyCreated ? $ledger : null;
     }
 
     public function createAdminAdjustment(User $customer, int $points, string $reason, User $admin): PointsLedger

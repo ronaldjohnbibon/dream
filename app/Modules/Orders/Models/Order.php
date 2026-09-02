@@ -4,12 +4,14 @@ namespace App\Modules\Orders\Models;
 
 use App\Modules\Inventory\Models\RiceProduct;
 use App\Modules\Inventory\Models\StockMovement;
+use App\Modules\Delivery\Models\Delivery;
 use App\Modules\Points\Models\PointsLedger;
 use App\Modules\Users\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
 {
@@ -39,6 +41,7 @@ class Order extends Model
         'subtotal',
         'points_used',
         'points_discount',
+        'delivery_fee',
         'final_amount',
         'amount_paid',
         'remaining_balance',
@@ -61,6 +64,7 @@ class Order extends Model
             'subtotal' => 'decimal:2',
             'points_used' => 'integer',
             'points_discount' => 'decimal:2',
+            'delivery_fee' => 'decimal:2',
             'final_amount' => 'decimal:2',
             'amount_paid' => 'decimal:2',
             'remaining_balance' => 'decimal:2',
@@ -103,5 +107,11 @@ class Order extends Model
     public function pointsLedgers(): HasMany
     {
         return $this->hasMany(PointsLedger::class);
+    }
+
+    /** @return HasOne<Delivery, $this> */
+    public function delivery(): HasOne
+    {
+        return $this->hasOne(Delivery::class);
     }
 }

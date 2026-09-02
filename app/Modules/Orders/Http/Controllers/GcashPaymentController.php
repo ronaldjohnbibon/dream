@@ -9,6 +9,8 @@ use App\Modules\Orders\Http\Requests\StoreGcashPaymentRequest;
 use App\Modules\Orders\Models\GcashPayment;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\PautangInstallment;
+use App\Modules\Notifications\Services\CustomerNotificationService;
+use App\Modules\Points\Models\PointsLedger;
 use App\Modules\Points\Services\PointsService;
 use App\Modules\Settings\Models\GcashSetting;
 use Illuminate\Database\QueryException;
@@ -23,9 +25,10 @@ use Inertia\Response;
 
 class GcashPaymentController extends Controller
 {
-    public function __construct(private readonly PointsService $points)
-    {
-    }
+    public function __construct(
+        private readonly PointsService $points,
+        private readonly CustomerNotificationService $notifications,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -75,7 +78,7 @@ class GcashPaymentController extends Controller
         $screenshotPath = null;
 
         try {
-            DB::transaction(function () use ($request, $order, $attributes, &$screenshotPath): void {
+            $payment = DB::transaction(function () use ($request, $order, $attributes, &$screenshotPath): GcashPayment {
                 $lockedOrder = Order::query()->lockForUpdate()->findOrFail($order->id);
                 $installment = $this->installmentFromAttributes($attributes, $lockedOrder, true);
                 $this->ensureSubmittable($lockedOrder, $installment);
@@ -99,7 +102,7 @@ class GcashPaymentController extends Controller
 
                 $screenshotPath = $request->file('screenshot')->store('gcash-payment-screenshots', 'local');
 
-                GcashPayment::create([
+                return GcashPayment::create([
                     'order_id' => $lockedOrder->id,
                     'pautang_installment_id' => $installment?->id,
                     'customer_id' => $request->user()->id,
@@ -116,6 +119,8 @@ class GcashPaymentController extends Controller
 
             throw $exception;
         }
+
+        $this->notifications->paymentSubmitted($payment->load(['order', 'customer']));
 
         return to_route('orders.show', $order)->with('success', 'GCash payment submitted for verification.');
     }
@@ -140,8 +145,10 @@ class GcashPaymentController extends Controller
 
     public function approve(ReviewGcashPaymentRequest $request, GcashPayment $gcashPayment): RedirectResponse
     {
+        $earnedLedgerId = null;
+
         try {
-            DB::transaction(function () use ($request, $gcashPayment): void {
+            DB::transaction(function () use ($request, $gcashPayment, &$earnedLedgerId): void {
                 $payment = GcashPayment::query()->lockForUpdate()->findOrFail($gcashPayment->id);
                 $this->ensurePending($payment);
                 $order = Order::query()->lockForUpdate()->findOrFail($payment->order_id);
@@ -192,7 +199,8 @@ class GcashPaymentController extends Controller
                 ]);
 
                 if ($installment) {
-                    $this->points->awardOnTimeInstallmentPayment($order, $installment, $payment);
+                    $earnedLedger = $this->points->awardOnTimeInstallmentPayment($order, $installment, $payment);
+                    $earnedLedgerId = $earnedLedger?->id;
                 }
             });
         } catch (QueryException $exception) {
@@ -201,6 +209,11 @@ class GcashPaymentController extends Controller
             }
 
             throw $exception;
+        }
+
+        $this->notifications->paymentApproved($gcashPayment->fresh(['order', 'customer']));
+        if ($earnedLedgerId) {
+            $this->notifications->pointsEarned(PointsLedger::query()->with('order')->findOrFail($earnedLedgerId));
         }
 
         return to_route('gcash-payments.show', $gcashPayment)->with('success', 'GCash payment approved and balances updated.');
@@ -218,6 +231,8 @@ class GcashPaymentController extends Controller
                 'reviewed_at' => now(),
             ]);
         });
+
+        $this->notifications->paymentRejected($gcashPayment->fresh(['order', 'customer']));
 
         return to_route('gcash-payments.show', $gcashPayment)->with('success', 'GCash payment rejected.');
     }

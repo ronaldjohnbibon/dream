@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/AppLayout.vue';
-import type { AvailableRiceProduct } from '@/modules/orders/types';
+import type { AvailableRiceProduct, DeliveryArea } from '@/modules/orders/types';
 import type { BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 
 const props = defineProps<{
     products: AvailableRiceProduct[];
+    areas: DeliveryArea[];
     customer: { complete_address: string | null; delivery_area: string | null };
     points: { balance: number; peso_per_point: string };
 }>();
@@ -25,10 +26,11 @@ const form = useForm({
     payment_type: 'cash' as 'cash' | 'pautang',
     points_to_use: 0,
     delivery_address: props.customer.complete_address ?? '',
-    delivery_area: props.customer.delivery_area ?? '',
+    delivery_area_id: props.areas.find((area) => area.name === props.customer.delivery_area)?.id ?? null as number | null,
     notes: '',
 });
 const selectedProduct = computed(() => props.products.find((product) => product.id === form.rice_product_id) ?? null);
+const selectedArea = computed(() => props.areas.find((area) => area.id === form.delivery_area_id) ?? null);
 const subtotal = computed(() => (selectedProduct.value ? Number((Number(selectedProduct.value.selling_price) * form.quantity).toFixed(2)) : 0));
 const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
 const pesoPerPoint = computed(() => Number(props.points.peso_per_point));
@@ -42,7 +44,8 @@ const maximumPointsToUse = computed(() => {
 });
 const pointsToUse = computed(() => Math.max(0, Math.min(Math.floor(Number(form.points_to_use) || 0), maximumPointsToUse.value)));
 const pointsDiscount = computed(() => Number((pointsToUse.value * pesoPerPoint.value).toFixed(2)));
-const finalAmount = computed(() => Math.max(0, Number((subtotal.value - pointsDiscount.value).toFixed(2))));
+const deliveryFee = computed(() => Number(selectedArea.value?.delivery_fee ?? 0));
+const finalAmount = computed(() => Math.max(0, Number((subtotal.value - pointsDiscount.value + deliveryFee.value).toFixed(2))));
 const finalAmountWithMaximumPoints = computed(() => Math.max(0, Number((subtotal.value - (maximumPointsToUse.value * pesoPerPoint.value)).toFixed(2))));
 const canPayFullyWithPoints = computed(() => selectedProduct.value !== null
     && form.quantity === 1
@@ -145,8 +148,11 @@ const submit = () => {
                         <p v-if="form.payment_type === 'pautang'" class="self-end rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                             Pautang is limited to one sack and requires no unpaid Pautang order.
                         </p>
-                        <FormField id="delivery-area" label="Delivery area" :error="form.errors.delivery_area" required>
-                            <Input id="delivery-area" v-model="form.delivery_area" required />
+                        <FormField id="delivery-area" label="Delivery area" :error="form.errors.delivery_area_id" required>
+                            <select id="delivery-area" v-model.number="form.delivery_area_id" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" required>
+                                <option :value="null" disabled>Select delivery area</option>
+                                <option v-for="area in areas" :key="area.id" :value="area.id">{{ area.name }} · {{ currency.format(Number(area.delivery_fee)) }}</option>
+                            </select>
                         </FormField>
                         <FormField id="delivery-address" label="Delivery address" :error="form.errors.delivery_address" required>
                             <textarea id="delivery-address" v-model="form.delivery_address" rows="4" class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required />
@@ -154,6 +160,7 @@ const submit = () => {
                         <FormField id="notes" label="Notes" :error="form.errors.notes">
                             <textarea id="notes" v-model="form.notes" rows="4" class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="Optional delivery notes" />
                         </FormField>
+                        <div class="rounded-md border bg-muted/30 p-4 text-sm sm:col-span-2"><div class="flex justify-between gap-3"><span>Delivery fee</span><span class="font-medium">{{ currency.format(deliveryFee) }}</span></div><div class="mt-2 flex justify-between gap-3 text-base"><span class="font-medium">Order total</span><span class="font-semibold">{{ currency.format(finalAmount) }}</span></div></div>
                     </CardContent>
                 </Card>
 

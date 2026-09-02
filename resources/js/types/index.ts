@@ -23,6 +23,10 @@ export interface SharedData extends PageProps {
     flash: {
         success: string | null;
     };
+    notifications: {
+        unread_count: number;
+        recent: CustomerNotification[];
+    };
     ziggy: {
         location: string;
         url: string;
@@ -38,6 +42,21 @@ export interface User {
     email: string;
     avatar?: string;
     is_admin: boolean;
+}
+
+export interface CustomerNotification {
+    id: string;
+    type: string;
+    title: string;
+    message: string;
+    action_url: string | null;
+    read_at: string | null;
+    created_at: string;
+}
+
+export interface PaginatedNotifications {
+    data: CustomerNotification[];
+    links: { label: string; url: string | null; active: boolean }[];
 }
 
 export type BreadcrumbItemType = BreadcrumbItem;

@@ -3,9 +3,11 @@
 namespace App\Modules\Orders\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Delivery\Models\Delivery;
+use App\Modules\Delivery\Models\DeliveryArea;
 use App\Modules\Inventory\Models\RiceProduct;
+use App\Modules\Notifications\Services\CustomerNotificationService;
 use App\Modules\Orders\Http\Requests\StoreOrderRequest;
-use App\Modules\Orders\Http\Requests\UpdateOrderRequest;
 use App\Modules\Orders\Models\GcashPayment;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\PautangInstallment;
@@ -21,53 +23,41 @@ use Inertia\Response;
 
 class OrderController extends Controller
 {
-    public function __construct(private readonly PointsService $points)
-    {
-    }
+    public function __construct(
+        private readonly PointsService $points,
+        private readonly CustomerNotificationService $notifications,
+    ) {}
 
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', Order::class);
-
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
-            'order_status' => ['nullable', 'in:all,'.implode(',', Order::STATUSES)],
+            'delivery_status' => ['nullable', 'in:all,'.implode(',', Delivery::STATUSES)],
             'payment_type' => ['nullable', 'in:all,'.implode(',', Order::PAYMENT_TYPES)],
             'payment_status' => ['nullable', 'in:all,'.implode(',', Order::PAYMENT_STATUSES)],
         ]);
-
         $search = $filters['search'] ?? '';
-        $orderStatus = $filters['order_status'] ?? 'all';
+        $deliveryStatus = $filters['delivery_status'] ?? 'all';
         $paymentType = $filters['payment_type'] ?? 'all';
         $paymentStatus = $filters['payment_status'] ?? 'all';
         $user = $request->user();
 
         $orders = Order::query()
-            ->with(['customer:id,name', 'riceProduct:id,name,brand,sack_size'])
+            ->with(['customer:id,name,email,mobile_number', 'riceProduct:id,name,brand,sack_size', 'delivery'])
             ->when(! $user->is_admin, fn ($query) => $query->where('customer_id', $user->id))
-            ->when($search !== '', fn ($query) => $query->where(fn ($searchQuery) => $searchQuery
-                ->where('order_number', 'like', "%{$search}%")
-                ->orWhereHas('customer', fn ($customerQuery) => $customerQuery->where('name', 'like', "%{$search}%"))
-                ->orWhereHas('riceProduct', fn ($productQuery) => $productQuery
-                    ->where('name', 'like', "%{$search}%")
-                    ->orWhere('brand', 'like', "%{$search}%"))))
-            ->when($orderStatus !== 'all', fn ($query) => $query->where('order_status', $orderStatus))
+            ->when($search !== '', fn ($query) => $query->where(fn ($q) => $q->where('order_number', 'like', "%{$search}%")
+                ->orWhereHas('customer', fn ($customer) => $customer->where('name', 'like', "%{$search}%"))
+                ->orWhereHas('riceProduct', fn ($product) => $product->where('name', 'like', "%{$search}%")->orWhere('brand', 'like', "%{$search}%"))))
+            ->when($deliveryStatus !== 'all', fn ($query) => $query->whereHas('delivery', fn ($delivery) => $delivery->where('status', $deliveryStatus)))
             ->when($paymentType !== 'all', fn ($query) => $query->where('payment_type', $paymentType))
             ->when($paymentStatus !== 'all', fn ($query) => $query->where('payment_status', $paymentStatus))
-            ->latest('order_date')
-            ->latest('id')
-            ->paginate(15)
-            ->withQueryString()
+            ->latest('order_date')->latest('id')->paginate(15)->withQueryString()
             ->through(fn (Order $order) => $this->orderData($order));
 
         return Inertia::render('modules/orders/Index', [
             'orders' => $orders,
-            'filters' => [
-                'search' => $search,
-                'order_status' => $orderStatus,
-                'payment_type' => $paymentType,
-                'payment_status' => $paymentStatus,
-            ],
+            'filters' => ['search' => $search, 'delivery_status' => $deliveryStatus, 'payment_type' => $paymentType, 'payment_status' => $paymentStatus],
             'canManage' => $user->is_admin,
         ]);
     }
@@ -75,168 +65,59 @@ class OrderController extends Controller
     public function create(Request $request): Response
     {
         $this->authorize('create', Order::class);
-
         $customer = $request->user();
-        $products = RiceProduct::query()
-            ->where('is_active', true)
-            ->where('available_stock', '>', 0)
-            ->orderBy('name')
-            ->get(['id', 'name', 'brand', 'selling_price', 'available_stock'])
-            ->map(fn (RiceProduct $product) => [
-                'id' => $product->id,
-                'name' => $product->name,
-                'brand' => $product->brand,
-                'selling_price' => $product->selling_price,
-                'available_stock' => $product->available_stock,
-            ]);
-
         return Inertia::render('modules/orders/Create', [
-            'products' => $products,
-            'customer' => [
-                'complete_address' => $customer->complete_address,
-                'delivery_area' => $customer->delivery_area,
-            ],
-            'points' => [
-                'balance' => $this->points->currentBalance($customer),
-                'peso_per_point' => $this->points->settings()->peso_per_point,
-            ],
+            'products' => RiceProduct::query()->where('is_active', true)->where('available_stock', '>', 0)->orderBy('name')->get(['id', 'name', 'brand', 'selling_price', 'available_stock']),
+            'areas' => DeliveryArea::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'delivery_fee']),
+            'customer' => ['complete_address' => $customer->complete_address, 'delivery_area' => $customer->delivery_area],
+            'points' => ['balance' => $this->points->currentBalance($customer), 'peso_per_point' => $this->points->settings()->peso_per_point],
         ]);
     }
 
     public function store(StoreOrderRequest $request): RedirectResponse
     {
         $attributes = $request->validated();
+        $redeemedPoints = null;
 
-        $order = DB::transaction(function () use ($attributes, $request): Order {
+        $order = DB::transaction(function () use ($attributes, $request, &$redeemedPoints): Order {
             $customer = User::query()->lockForUpdate()->findOrFail($request->user()->id);
-
-            if ($customer->account_status === 'suspended') {
-                throw ValidationException::withMessages([
-                    'rice_product_id' => 'Suspended customers cannot place orders.',
-                ]);
-            }
-
+            if ($customer->account_status === 'suspended') throw ValidationException::withMessages(['rice_product_id' => 'Suspended customers cannot place orders.']);
             $product = RiceProduct::query()->lockForUpdate()->findOrFail($attributes['rice_product_id']);
+            $area = DeliveryArea::query()->lockForUpdate()->where('is_active', true)->find($attributes['delivery_area_id']);
+            if (! $area) throw ValidationException::withMessages(['delivery_area_id' => 'Choose an active delivery area.']);
             $quantity = $attributes['quantity'];
             $pointsToUse = (int) ($attributes['points_to_use'] ?? 0);
-
-            if (! $product->is_active) {
-                throw ValidationException::withMessages([
-                    'rice_product_id' => 'This rice product is no longer available.',
-                ]);
-            }
-
-            if ($product->available_stock < $quantity) {
-                throw ValidationException::withMessages([
-                    'quantity' => 'There is not enough stock available for this order.',
-                ]);
-            }
-
+            if (! $product->is_active || $product->available_stock < $quantity) throw ValidationException::withMessages(['quantity' => 'There is not enough stock available for this order.']);
             if ($attributes['payment_type'] === 'pautang') {
-                if ($pointsToUse > 0) {
-                    throw ValidationException::withMessages([
-                        'points_to_use' => 'Points can only be redeemed on cash orders.',
-                    ]);
-                }
-
-                if ($quantity !== 1) {
-                    throw ValidationException::withMessages([
-                        'quantity' => 'Pautang orders are limited to one sack.',
-                    ]);
-                }
-
-                $hasActivePautang = Order::query()
-                    ->where('customer_id', $customer->id)
-                    ->where('payment_type', 'pautang')
-                    ->where('payment_status', '!=', 'paid')
-                    ->where('order_status', '!=', 'cancelled')
-                    ->exists();
-
-                if ($hasActivePautang) {
-                    throw ValidationException::withMessages([
-                        'payment_type' => 'You still have an unpaid pautang order.',
-                    ]);
-                }
+                if ($pointsToUse > 0) throw ValidationException::withMessages(['points_to_use' => 'Points can only be redeemed on cash orders.']);
+                if ($quantity !== 1) throw ValidationException::withMessages(['quantity' => 'Pautang orders are limited to one sack.']);
+                if (Order::query()->where('customer_id', $customer->id)->where('payment_type', 'pautang')->where('payment_status', '!=', 'paid')->where('order_status', '!=', 'cancelled')->exists()) throw ValidationException::withMessages(['payment_type' => 'You still have an unpaid pautang order.']);
             }
-
             $unitPrice = (float) $product->selling_price;
-            $subtotalAmount = round($unitPrice * $quantity, 2);
-            $subtotal = number_format($subtotalAmount, 2, '.', '');
-            $pointsDiscountAmount = 0.0;
-
-            if ($pointsToUse > 0) {
-                $availablePoints = $this->points->currentBalance($customer);
-                if ($pointsToUse > $availablePoints) {
-                    throw ValidationException::withMessages([
-                        'points_to_use' => 'You cannot use more points than your available balance.',
-                    ]);
-                }
-
-                $pesoPerPoint = (float) $this->points->settings()->peso_per_point;
-                if ($pesoPerPoint <= 0) {
-                    throw ValidationException::withMessages([
-                        'points_to_use' => 'Points redemption is not currently available.',
-                    ]);
-                }
-
-                $maximumPointsForOrder = $pesoPerPoint > 0
-                    ? (int) floor(($subtotalAmount + 0.000001) / $pesoPerPoint)
-                    : 0;
-
-                if ($pointsToUse > $maximumPointsForOrder) {
-                    throw ValidationException::withMessages([
-                        'points_to_use' => 'Points used cannot reduce the order total below zero.',
-                    ]);
-                }
-
-                $pointsDiscountAmount = round($pointsToUse * $pesoPerPoint, 2);
-            }
-
-            $finalAmount = max(0, round($subtotalAmount - $pointsDiscountAmount, 2));
+            $subtotal = round($unitPrice * $quantity, 2);
+            $pointsDiscount = $this->pointsDiscount($customer, $pointsToUse, $subtotal);
+            $fee = (float) $area->delivery_fee;
+            $finalAmount = max(0, round($subtotal - $pointsDiscount + $fee, 2));
             $previousStock = $product->available_stock;
-            $newStock = $previousStock - $quantity;
-
             $order = Order::create([
-                'customer_id' => $customer->id,
-                'rice_product_id' => $product->id,
-                'quantity' => $quantity,
-                'unit_price' => number_format($unitPrice, 2, '.', ''),
-                'subtotal' => $subtotal,
-                'points_used' => $pointsToUse,
-                'points_discount' => number_format($pointsDiscountAmount, 2, '.', ''),
-                'final_amount' => number_format($finalAmount, 2, '.', ''),
-                'amount_paid' => '0.00',
-                'remaining_balance' => number_format($finalAmount, 2, '.', ''),
-                'payment_type' => $attributes['payment_type'],
-                'delivery_address' => $attributes['delivery_address'],
-                'delivery_area' => $attributes['delivery_area'],
-                'order_date' => today(),
-                'order_status' => 'pending',
-                'payment_status' => $finalAmount <= 0 ? 'paid' : 'unpaid',
-                'notes' => $attributes['notes'] ?? null,
+                'customer_id' => $customer->id, 'rice_product_id' => $product->id, 'quantity' => $quantity, 'unit_price' => number_format($unitPrice, 2, '.', ''), 'subtotal' => number_format($subtotal, 2, '.', ''),
+                'points_used' => $pointsToUse, 'points_discount' => number_format($pointsDiscount, 2, '.', ''), 'delivery_fee' => number_format($fee, 2, '.', ''), 'final_amount' => number_format($finalAmount, 2, '.', ''), 'amount_paid' => '0.00', 'remaining_balance' => number_format($finalAmount, 2, '.', ''),
+                'payment_type' => $attributes['payment_type'], 'delivery_address' => $attributes['delivery_address'], 'delivery_area' => $area->name, 'order_date' => today(), 'order_status' => 'pending', 'payment_status' => $finalAmount <= 0 ? 'paid' : 'unpaid', 'notes' => $attributes['notes'] ?? null,
             ]);
-
             $order->update(['order_number' => 'ORD-'.str_pad((string) $order->id, 6, '0', STR_PAD_LEFT)]);
+            $order->delivery()->create(['customer_id' => $customer->id, 'delivery_area_id' => $area->id, 'delivery_area_name' => $area->name, 'delivery_address' => $attributes['delivery_address'], 'delivery_fee' => number_format($fee, 2, '.', ''), 'status' => 'pending', 'notes' => $attributes['notes'] ?? null]);
             if ($pointsToUse > 0) {
-                $this->points->redeemOrder($order, $pointsToUse);
+                $ledger = $this->points->redeemOrder($order, $pointsToUse);
+                $redeemedPoints = $ledger->wasRecentlyCreated ? $pointsToUse : null;
             }
-
-            $product->update([
-                'available_stock' => $newStock,
-                'reserved_stock' => $product->reserved_stock + $quantity,
-            ]);
-            $product->stockMovements()->create([
-                'quantity' => $quantity,
-                'type' => 'order',
-                'previous_stock' => $previousStock,
-                'new_stock' => $newStock,
-                'order_id' => $order->id,
-                'notes' => "Order {$order->order_number} reserved.",
-                'user_id' => $customer->id,
-            ]);
-
+            $product->update(['available_stock' => $previousStock - $quantity, 'reserved_stock' => $product->reserved_stock + $quantity]);
+            $product->stockMovements()->create(['quantity' => $quantity, 'type' => 'order', 'previous_stock' => $previousStock, 'new_stock' => $previousStock - $quantity, 'order_id' => $order->id, 'notes' => "Order {$order->order_number} reserved.", 'user_id' => $customer->id]);
             return $order;
         });
+        if ($redeemedPoints) {
+            $this->notifications->pointsRedeemed($order, $redeemedPoints);
+        }
+        $this->notifications->newOrder($order);
 
         return to_route('orders.show', $order)->with('success', 'Order placed successfully.');
     }
@@ -244,229 +125,43 @@ class OrderController extends Controller
     public function show(Order $order): Response
     {
         $this->authorize('view', $order);
-
-        $order->load(['customer:id,name,email,mobile_number', 'riceProduct:id,name,brand,sack_size', 'pautangInstallments', 'gcashPayments.pautangInstallment', 'gcashPayments.reviewer']);
-
-        return Inertia::render('modules/orders/Show', [
-            'order' => $this->orderData($order),
-            'canManage' => request()->user()->is_admin,
-            'allowedStatuses' => request()->user()->is_admin ? $this->allowedStatuses($order) : [],
-        ]);
+        $order->load(['customer:id,name,email,mobile_number', 'riceProduct:id,name,brand,sack_size', 'delivery', 'pautangInstallments', 'gcashPayments.pautangInstallment', 'gcashPayments.reviewer']);
+        return Inertia::render('modules/orders/Show', ['order' => $this->orderData($order), 'canManage' => request()->user()->is_admin]);
     }
 
-    public function update(UpdateOrderRequest $request, Order $order): RedirectResponse
+    private function pointsDiscount(User $customer, int $points, float $subtotal): float
     {
-        $attributes = $request->validated();
-
-        DB::transaction(function () use ($attributes, $order, $request): void {
-            $lockedOrder = Order::query()->lockForUpdate()->findOrFail($order->id);
-            $nextStatuses = $this->allowedStatuses($lockedOrder);
-
-            if (! in_array($attributes['order_status'], $nextStatuses, true)) {
-                throw ValidationException::withMessages([
-                    'order_status' => 'This order status change is not allowed.',
-                ]);
-            }
-
-            $isCancelled = $attributes['order_status'] === 'cancelled' && $lockedOrder->order_status !== 'cancelled';
-            $isDelivered = $attributes['order_status'] === 'delivered' && $lockedOrder->order_status !== 'delivered';
-            $isPautangApproval = $lockedOrder->payment_type === 'pautang'
-                && $lockedOrder->order_status === 'pending'
-                && $attributes['order_status'] === 'confirmed';
-
-            if ($isCancelled) {
-                $hasPayments = $lockedOrder->gcashPayments()->exists()
-                    || ($lockedOrder->payment_type === 'pautang'
-                        && $lockedOrder->pautangInstallments()->where('amount_paid', '>', 0)->exists());
-
-                if ($hasPayments) {
-                    throw ValidationException::withMessages([
-                        'order_status' => 'An order with GCash payment submissions cannot be cancelled.',
-                    ]);
-                }
-            }
-
-            if ($isCancelled || $isDelivered) {
-                $product = RiceProduct::query()->lockForUpdate()->findOrFail($lockedOrder->rice_product_id);
-
-                if ($isCancelled) {
-                    $previousStock = $product->available_stock;
-                    $newStock = $previousStock + $lockedOrder->quantity;
-
-                    $product->update([
-                        'available_stock' => $newStock,
-                        'reserved_stock' => max(0, $product->reserved_stock - $lockedOrder->quantity),
-                    ]);
-                    $product->stockMovements()->create([
-                        'quantity' => $lockedOrder->quantity,
-                        'type' => 'cancellation',
-                        'previous_stock' => $previousStock,
-                        'new_stock' => $newStock,
-                        'order_id' => $lockedOrder->id,
-                        'notes' => "Order {$lockedOrder->order_number} cancelled.",
-                        'user_id' => $request->user()->id,
-                    ]);
-                    User::query()->lockForUpdate()->findOrFail($lockedOrder->customer_id);
-                    $this->points->refundOrderRedemption($lockedOrder);
-                }
-
-                if ($isDelivered) {
-                    $product->update([
-                        'reserved_stock' => max(0, $product->reserved_stock - $lockedOrder->quantity),
-                    ]);
-                }
-            }
-
-            if ($isPautangApproval) {
-                $this->createPautangInstallments($lockedOrder);
-            }
-
-            if ($isCancelled && $lockedOrder->payment_type === 'pautang') {
-                $lockedOrder->pautangInstallments()->delete();
-            }
-
-            $paymentStatus = $lockedOrder->payment_status;
-            if ($lockedOrder->payment_type === 'pautang') {
-                $paymentStatus = $this->pautangPaymentStatus($lockedOrder->pautangInstallments()->get());
-            }
-
-            $lockedOrder->update([
-                'order_status' => $attributes['order_status'],
-                'payment_status' => $paymentStatus,
-                'delivery_date' => $attributes['delivery_date'] ?? null,
-            ]);
-
-            if ($lockedOrder->order_status === 'completed') {
-                $this->points->awardCompletedOrder($lockedOrder);
-            }
-        });
-
-        return to_route('orders.show', $order)->with('success', 'Order updated successfully.');
-    }
-
-    /** @return list<string> */
-    private function allowedStatuses(Order $order): array
-    {
-        return match ($order->order_status) {
-            'pending' => ['pending', 'confirmed', 'cancelled'],
-            'confirmed' => ['confirmed', 'preparing', 'cancelled'],
-            'preparing' => ['preparing', 'out_for_delivery', 'cancelled'],
-            'out_for_delivery' => ['out_for_delivery', 'delivered', 'cancelled'],
-            'delivered' => ['delivered', 'completed'],
-            'completed' => ['completed'],
-            'cancelled' => ['cancelled'],
-        };
-    }
-
-    private function createPautangInstallments(Order $order): void
-    {
-        $firstAmount = round((float) $order->final_amount / 2, 2);
-        $secondAmount = round((float) $order->final_amount - $firstAmount, 2);
-
-        $order->pautangInstallments()->createMany([
-            [
-                'installment_number' => 1,
-                'amount_due' => number_format($firstAmount, 2, '.', ''),
-                'due_date' => today()->addDays(15),
-                'amount_paid' => '0.00',
-                'remaining_balance' => number_format($firstAmount, 2, '.', ''),
-                'status' => 'pending',
-            ],
-            [
-                'installment_number' => 2,
-                'amount_due' => number_format($secondAmount, 2, '.', ''),
-                'due_date' => today()->addDays(30),
-                'amount_paid' => '0.00',
-                'remaining_balance' => number_format($secondAmount, 2, '.', ''),
-                'status' => 'pending',
-            ],
-        ]);
+        if ($points === 0) return 0.0;
+        if ($points > $this->points->currentBalance($customer)) throw ValidationException::withMessages(['points_to_use' => 'You cannot use more points than your available balance.']);
+        $rate = (float) $this->points->settings()->peso_per_point;
+        if ($rate <= 0) throw ValidationException::withMessages(['points_to_use' => 'Points redemption is not currently available.']);
+        if ($points > (int) floor(($subtotal + 0.000001) / $rate)) throw ValidationException::withMessages(['points_to_use' => 'Points used cannot reduce the rice subtotal below zero.']);
+        return round($points * $rate, 2);
     }
 
     /** @param Collection<int, PautangInstallment> $installments */
     private function pautangPaymentStatus($installments): string
     {
-        if ($installments->isEmpty()) {
-            return 'unpaid';
-        }
-
-        if ($installments->every(fn (PautangInstallment $installment) => (float) $installment->remaining_balance <= 0)) {
-            return 'paid';
-        }
-
-        if ($installments->contains(fn (PautangInstallment $installment) => $installment->currentStatus() === 'overdue')) {
-            return 'overdue';
-        }
-
-        return $installments->contains(fn (PautangInstallment $installment) => (float) $installment->amount_paid > 0)
-            ? 'partially_paid'
-            : 'unpaid';
+        if ($installments->isEmpty()) return 'unpaid';
+        if ($installments->every(fn (PautangInstallment $item) => (float) $item->remaining_balance <= 0)) return 'paid';
+        if ($installments->contains(fn (PautangInstallment $item) => $item->currentStatus() === 'overdue')) return 'overdue';
+        return $installments->contains(fn (PautangInstallment $item) => (float) $item->amount_paid > 0) ? 'partially_paid' : 'unpaid';
     }
 
     /** @return array<string, mixed> */
     private function orderData(Order $order): array
     {
         return [
-            'id' => $order->id,
-            'order_number' => $order->order_number,
-            'customer' => [
-                'id' => $order->customer->id,
-                'name' => $order->customer->name,
-                'email' => $order->customer->email,
-                'mobile_number' => $order->customer->mobile_number,
-            ],
-            'rice_product' => [
-                'id' => $order->riceProduct->id,
-                'name' => $order->riceProduct->name,
-                'brand' => $order->riceProduct->brand,
-                'sack_size' => $order->riceProduct->sack_size,
-            ],
-            'quantity' => $order->quantity,
-            'unit_price' => $order->unit_price,
-            'subtotal' => $order->subtotal,
-            'points_used' => $order->points_used,
-            'points_discount' => $order->points_discount,
-            'final_amount' => $order->final_amount,
-            'amount_paid' => $order->amount_paid,
-            'remaining_balance' => $order->remaining_balance,
-            'payment_type' => $order->payment_type,
-            'delivery_address' => $order->delivery_address,
-            'delivery_area' => $order->delivery_area,
-            'order_date' => $order->order_date->toDateString(),
-            'delivery_date' => $order->delivery_date?->toDateString(),
-            'order_status' => $order->order_status,
-            'payment_status' => $order->relationLoaded('pautangInstallments') && $order->payment_type === 'pautang' && $order->pautangInstallments->isNotEmpty()
-                ? $this->pautangPaymentStatus($order->pautangInstallments)
-                : $order->payment_status,
-            'notes' => $order->notes,
-            'pautang_installments' => $order->relationLoaded('pautangInstallments')
-                ? $order->pautangInstallments->map(fn (PautangInstallment $installment) => [
-                    'id' => $installment->id,
-                    'installment_number' => $installment->installment_number,
-                    'amount_due' => $installment->amount_due,
-                    'due_date' => $installment->due_date->toDateString(),
-                    'amount_paid' => $installment->amount_paid,
-                    'remaining_balance' => $installment->remaining_balance,
-                    'status' => $installment->currentStatus(),
-                    'paid_date' => $installment->paid_date?->toDateString(),
-                ])->values()
-                : [],
-            'gcash_payments' => $order->relationLoaded('gcashPayments')
-                ? $order->gcashPayments->map(fn (GcashPayment $payment) => [
-                    'id' => $payment->id,
-                    'amount' => $payment->amount,
-                    'reference_number' => $payment->reference_number,
-                    'payment_date' => $payment->payment_date->toDateString(),
-                    'status' => $payment->status,
-                    'remarks' => $payment->remarks,
-                    'reviewed_at' => $payment->reviewed_at?->toISOString(),
-                    'screenshot_url' => route('gcash-payments.screenshot', $payment),
-                    'installment_number' => $payment->pautangInstallment?->installment_number,
-                    'reviewer_name' => $payment->reviewer?->name,
-                ])->values()
-                : [],
-            'created_at' => $order->created_at->toISOString(),
-            'updated_at' => $order->updated_at->toISOString(),
+            'id' => $order->id, 'order_number' => $order->order_number,
+            'customer' => ['id' => $order->customer->id, 'name' => $order->customer->name, 'email' => $order->customer->email, 'mobile_number' => $order->customer->mobile_number],
+            'rice_product' => ['id' => $order->riceProduct->id, 'name' => $order->riceProduct->name, 'brand' => $order->riceProduct->brand, 'sack_size' => $order->riceProduct->sack_size],
+            'quantity' => $order->quantity, 'unit_price' => $order->unit_price, 'subtotal' => $order->subtotal, 'points_used' => $order->points_used, 'points_discount' => $order->points_discount, 'delivery_fee' => $order->delivery_fee, 'final_amount' => $order->final_amount, 'amount_paid' => $order->amount_paid, 'remaining_balance' => $order->remaining_balance, 'payment_type' => $order->payment_type,
+            'delivery_address' => $order->delivery_address, 'delivery_area' => $order->delivery_area, 'order_date' => $order->order_date->toDateString(),
+            'payment_status' => $order->relationLoaded('pautangInstallments') && $order->payment_type === 'pautang' && $order->pautangInstallments->isNotEmpty() ? $this->pautangPaymentStatus($order->pautangInstallments) : $order->payment_status,
+            'delivery' => $order->delivery ? ['id' => $order->delivery->id, 'delivery_area_id' => $order->delivery->delivery_area_id, 'delivery_area_name' => $order->delivery->delivery_area_name, 'delivery_address' => $order->delivery->delivery_address, 'delivery_fee' => $order->delivery->delivery_fee, 'delivery_date' => $order->delivery->delivery_date?->toDateString(), 'delivery_person' => $order->delivery->delivery_person, 'status' => $order->delivery->status, 'notes' => $order->delivery->notes, 'delivered_date' => $order->delivery->delivered_date?->toDateString()] : null,
+            'pautang_installments' => $order->relationLoaded('pautangInstallments') ? $order->pautangInstallments->map(fn (PautangInstallment $item) => ['id' => $item->id, 'installment_number' => $item->installment_number, 'amount_due' => $item->amount_due, 'due_date' => $item->due_date->toDateString(), 'amount_paid' => $item->amount_paid, 'remaining_balance' => $item->remaining_balance, 'status' => $item->currentStatus(), 'paid_date' => $item->paid_date?->toDateString()])->values() : [],
+            'gcash_payments' => $order->relationLoaded('gcashPayments') ? $order->gcashPayments->map(fn (GcashPayment $payment) => ['id' => $payment->id, 'amount' => $payment->amount, 'reference_number' => $payment->reference_number, 'payment_date' => $payment->payment_date->toDateString(), 'status' => $payment->status, 'remarks' => $payment->remarks, 'reviewed_at' => $payment->reviewed_at?->toISOString(), 'screenshot_url' => route('gcash-payments.screenshot', $payment), 'installment_number' => $payment->pautangInstallment?->installment_number, 'reviewer_name' => $payment->reviewer?->name])->values() : [],
+            'created_at' => $order->created_at->toISOString(), 'updated_at' => $order->updated_at->toISOString(),
         ];
     }
 }
