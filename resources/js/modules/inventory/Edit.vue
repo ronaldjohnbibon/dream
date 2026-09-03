@@ -20,7 +20,6 @@ const form = useForm({
     cost_price: props.product.cost_price,
     selling_price: props.product.selling_price,
     initial_stock: 0,
-    reorder_level: props.product.reorder_level,
 });
 
 const submit = () => form.put(route('rice-products.update', { riceProduct: props.product.id }));

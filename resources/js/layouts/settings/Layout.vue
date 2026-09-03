@@ -20,8 +20,7 @@ const sidebarNavItems = computed<NavItem[]>(() => {
     ];
 
     if (page.props.auth.user?.is_admin) {
-        items.push({ title: 'GCash', href: '/settings/gcash' });
-        items.push({ title: 'Points', href: '/settings/points' });
+        items.push({ title: 'System', href: '/settings/system' });
     }
 
     return items;
@@ -32,7 +31,7 @@ const currentPath = window.location.pathname;
 
 <template>
     <div class="px-4 py-6">
-        <Heading title="Settings" description="Manage your profile and account settings" />
+        <Heading title="Settings" description="Manage your profile, account, and business settings" />
 
         <div class="flex flex-col space-y-8 md:space-y-0 lg:flex-row lg:space-x-12 lg:space-y-0">
             <aside class="w-full max-w-xl lg:w-48">

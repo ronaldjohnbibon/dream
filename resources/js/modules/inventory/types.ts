@@ -21,7 +21,6 @@ export interface RiceProduct {
     selling_price: string;
     available_stock: number;
     reserved_stock: number;
-    reorder_level: number;
     is_active: boolean;
     created_at: string;
     updated_at: string;
@@ -34,7 +33,6 @@ export interface RiceProductFormData {
     cost_price: string;
     selling_price: string;
     initial_stock: number;
-    reorder_level: number;
 }
 
 export interface ProductFilters {

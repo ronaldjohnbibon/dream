@@ -72,7 +72,6 @@ export interface InventoryReportRow {
     brand: string;
     available_stock: number;
     reserved_stock: number;
-    reorder_level: number;
     is_active: boolean;
 }
 

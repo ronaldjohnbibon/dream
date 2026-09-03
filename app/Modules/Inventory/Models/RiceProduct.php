@@ -23,7 +23,6 @@ class RiceProduct extends Model
         'selling_price',
         'available_stock',
         'reserved_stock',
-        'reorder_level',
         'is_active',
     ];
 
@@ -36,7 +35,6 @@ class RiceProduct extends Model
             'selling_price' => 'decimal:2',
             'available_stock' => 'integer',
             'reserved_stock' => 'integer',
-            'reorder_level' => 'integer',
             'is_active' => 'boolean',
         ];
     }

@@ -12,6 +12,7 @@ import { ref } from 'vue';
 const props = defineProps<{
     products: PaginatedProducts;
     filters: ProductFilters;
+    lowStockThreshold: number;
 }>();
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Rice inventory', href: route('rice-products.index') }];
@@ -33,7 +34,7 @@ const toggleStatus = (product: RiceProduct) => {
     router.patch(route('rice-products.status', { riceProduct: product.id }), {}, { preserveScroll: true });
 };
 
-const isLowStock = (product: RiceProduct) => product.is_active && product.available_stock <= product.reorder_level;
+const isLowStock = (product: RiceProduct) => product.is_active && product.available_stock <= props.lowStockThreshold;
 </script>
 
 <template>
@@ -73,14 +74,13 @@ const isLowStock = (product: RiceProduct) => product.is_active && product.availa
                         <th class="px-4 py-3 font-medium">Prices</th>
                         <th class="px-4 py-3 font-medium">Available</th>
                         <th class="px-4 py-3 font-medium">Reserved</th>
-                        <th class="px-4 py-3 font-medium">Reorder level</th>
                         <th class="px-4 py-3 font-medium">Status</th>
                         <th class="px-4 py-3 text-right font-medium">Actions</th>
                     </tr>
                 </template>
                 <template #body>
                     <tr v-if="products.data.length === 0">
-                        <td colspan="7" class="px-4 py-10 text-center text-muted-foreground">No rice products match the current filters.</td>
+                        <td colspan="6" class="px-4 py-10 text-center text-muted-foreground">No rice products match the current filters.</td>
                     </tr>
                     <tr v-for="product in products.data" :key="product.id">
                         <td class="px-4 py-3">
@@ -93,7 +93,6 @@ const isLowStock = (product: RiceProduct) => product.is_active && product.availa
                         </td>
                         <td class="px-4 py-3 font-medium" :class="isLowStock(product) && 'text-destructive'">{{ product.available_stock }}</td>
                         <td class="px-4 py-3">{{ product.reserved_stock }}</td>
-                        <td class="px-4 py-3">{{ product.reorder_level }}</td>
                         <td class="px-4 py-3">
                             <span
                                 class="rounded-full px-2 py-1 text-xs"

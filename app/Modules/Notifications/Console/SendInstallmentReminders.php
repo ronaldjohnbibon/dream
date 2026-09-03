@@ -4,6 +4,7 @@ namespace App\Modules\Notifications\Console;
 
 use App\Modules\Notifications\Services\CustomerNotificationService;
 use App\Modules\Orders\Models\PautangInstallment;
+use App\Modules\Settings\Models\SystemSetting;
 use Illuminate\Console\Command;
 
 class SendInstallmentReminders extends Command
@@ -26,7 +27,8 @@ class SendInstallmentReminders extends Command
             $notifications->administratorsUpcomingInstallment($installment);
         });
 
-        $this->installmentsDueOn($today->copy()->subDay()->toDateString())->each(function (PautangInstallment $installment) use ($notifications, &$overdue): void {
+        $overdueDueDate = $today->copy()->subDays(SystemSetting::current()->pautang_grace_period_days + 1)->toDateString();
+        $this->installmentsDueOn($overdueDueDate)->each(function (PautangInstallment $installment) use ($notifications, &$overdue): void {
             if ($notifications->overdueInstallment($installment)) {
                 $overdue++;
             }

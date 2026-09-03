@@ -13,7 +13,8 @@ const props = defineProps<{
     products: AvailableRiceProduct[];
     areas: DeliveryArea[];
     customer: { complete_address: string | null; delivery_area: string | null };
-    points: { balance: number; peso_per_point: string };
+    points: { enabled: boolean; balance: number; peso_per_point: string; minimum_redemption: number; maximum_points_usable: number };
+    pautang: { enabled: boolean; maximum_sacks: number };
 }>();
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -36,17 +37,18 @@ const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: '
 const pesoPerPoint = computed(() => Number(props.points.peso_per_point));
 const pesoEquivalent = computed(() => props.points.balance * pesoPerPoint.value);
 const maximumPointsToUse = computed(() => {
-    if (form.payment_type !== 'cash' || pesoPerPoint.value <= 0 || subtotal.value <= 0) {
+    if (! props.points.enabled || form.payment_type !== 'cash' || pesoPerPoint.value <= 0 || subtotal.value <= 0) {
         return 0;
     }
 
-    return Math.min(props.points.balance, Math.floor((subtotal.value + Number.EPSILON) / pesoPerPoint.value));
+    return Math.min(props.points.balance, props.points.maximum_points_usable, Math.floor((subtotal.value + Number.EPSILON) / pesoPerPoint.value));
 });
 const pointsToUse = computed(() => Math.max(0, Math.min(Math.floor(Number(form.points_to_use) || 0), maximumPointsToUse.value)));
 const pointsDiscount = computed(() => Number((pointsToUse.value * pesoPerPoint.value).toFixed(2)));
 const deliveryFee = computed(() => Number(selectedArea.value?.delivery_fee ?? 0));
 const finalAmount = computed(() => Math.max(0, Number((subtotal.value - pointsDiscount.value + deliveryFee.value).toFixed(2))));
 const finalAmountWithMaximumPoints = computed(() => Math.max(0, Number((subtotal.value - (maximumPointsToUse.value * pesoPerPoint.value)).toFixed(2))));
+const maximumQuantity = computed(() => Math.min(selectedProduct.value?.available_stock ?? 0, form.payment_type === 'pautang' ? props.pautang.maximum_sacks : Number.MAX_SAFE_INTEGER));
 const canPayFullyWithPoints = computed(() => selectedProduct.value !== null
     && form.quantity === 1
     && maximumPointsToUse.value > 0
@@ -55,6 +57,7 @@ const canPayFullyWithPoints = computed(() => selectedProduct.value !== null
 watch([() => form.payment_type, maximumPointsToUse], () => {
     if (form.payment_type === 'pautang') {
         form.points_to_use = 0;
+        if (form.quantity > props.pautang.maximum_sacks) form.quantity = props.pautang.maximum_sacks;
     } else if (form.points_to_use > maximumPointsToUse.value) {
         form.points_to_use = maximumPointsToUse.value;
     }
@@ -90,7 +93,7 @@ const submit = () => {
             </Card>
 
             <form v-else class="space-y-6" @submit.prevent="submit">
-                <Card>
+                <Card v-if="points.enabled">
                     <CardHeader><CardTitle>Rice order</CardTitle></CardHeader>
                     <CardContent class="grid gap-5 sm:grid-cols-2">
                         <FormField id="rice-product" label="Rice product" :error="form.errors.rice_product_id" required>
@@ -102,7 +105,7 @@ const submit = () => {
                             </select>
                         </FormField>
                         <FormField id="quantity" label="Quantity (sacks)" :error="form.errors.quantity" required>
-                            <Input id="quantity" v-model.number="form.quantity" type="number" min="1" :max="selectedProduct?.available_stock" step="1" required />
+                            <Input id="quantity" v-model.number="form.quantity" type="number" min="1" :max="maximumQuantity" step="1" required />
                         </FormField>
                         <div v-if="selectedProduct" class="rounded-md border bg-muted/30 p-4 text-sm sm:col-span-2">
                             <div class="flex flex-wrap justify-between gap-2"><span>Unit price</span><span class="font-medium">{{ currency.format(Number(selectedProduct.selling_price)) }}</span></div>
@@ -128,7 +131,7 @@ const submit = () => {
                                 <Input id="points-to-use" v-model.number="form.points_to_use" type="number" min="0" :max="maximumPointsToUse" step="1" :disabled="form.payment_type === 'pautang' || maximumPointsToUse === 0" />
                             </FormField>
                             <div class="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                                <span>Up to {{ maximumPointsToUse }} points can be used on this order.</span>
+                                <span>Use at least {{ points.minimum_redemption }} and up to {{ maximumPointsToUse }} points on this order.</span>
                                 <Button v-if="canPayFullyWithPoints" type="button" size="sm" variant="outline" @click="payFullyUsingPoints">Pay Fully Using Points</Button>
                             </div>
                         </div>
@@ -142,11 +145,11 @@ const submit = () => {
                         <FormField id="payment-type" label="Payment type" :error="form.errors.payment_type" required>
                             <select id="payment-type" v-model="form.payment_type" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                                 <option value="cash">Cash</option>
-                                <option value="pautang">Pautang</option>
+                                <option v-if="pautang.enabled" value="pautang">Pautang</option>
                             </select>
                         </FormField>
                         <p v-if="form.payment_type === 'pautang'" class="self-end rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                            Pautang is limited to one sack and requires no unpaid Pautang order.
+                            Pautang is limited to {{ pautang.maximum_sacks }} sack(s) and the configured active-order limit.
                         </p>
                         <FormField id="delivery-area" label="Delivery area" :error="form.errors.delivery_area_id" required>
                             <select id="delivery-area" v-model.number="form.delivery_area_id" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" required>

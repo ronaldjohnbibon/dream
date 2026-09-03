@@ -5,6 +5,7 @@ namespace App\Modules\Orders\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Delivery\Models\Delivery;
 use App\Modules\Delivery\Models\DeliveryArea;
+use App\Modules\Delivery\Services\DeliveryPricingService;
 use App\Modules\Inventory\Models\RiceProduct;
 use App\Modules\Notifications\Services\CustomerNotificationService;
 use App\Modules\Orders\Http\Requests\StoreOrderRequest;
@@ -12,6 +13,7 @@ use App\Modules\Orders\Models\GcashPayment;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\PautangInstallment;
 use App\Modules\Points\Services\PointsService;
+use App\Modules\Settings\Models\SystemSetting;
 use App\Modules\Users\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,6 +28,7 @@ class OrderController extends Controller
     public function __construct(
         private readonly PointsService $points,
         private readonly CustomerNotificationService $notifications,
+        private readonly DeliveryPricingService $deliveryPricing,
     ) {}
 
     public function index(Request $request): Response
@@ -66,11 +69,22 @@ class OrderController extends Controller
     {
         $this->authorize('create', Order::class);
         $customer = $request->user();
+        $system = SystemSetting::current();
+        $points = $this->points->settings();
+
         return Inertia::render('modules/orders/Create', [
             'products' => RiceProduct::query()->where('is_active', true)->where('available_stock', '>', 0)->orderBy('name')->get(['id', 'name', 'brand', 'selling_price', 'available_stock']),
-            'areas' => DeliveryArea::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'delivery_fee']),
+            'areas' => DeliveryArea::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'delivery_fee'])
+                ->map(fn (DeliveryArea $area) => ['id' => $area->id, 'name' => $area->name, 'delivery_fee' => number_format($this->deliveryPricing->feeFor($area), 2, '.', '')]),
             'customer' => ['complete_address' => $customer->complete_address, 'delivery_area' => $customer->delivery_area],
-            'points' => ['balance' => $this->points->currentBalance($customer), 'peso_per_point' => $this->points->settings()->peso_per_point],
+            'points' => [
+                'enabled' => $points->is_enabled,
+                'balance' => $this->points->currentBalance($customer),
+                'peso_per_point' => $points->peso_per_point,
+                'minimum_redemption' => $points->minimum_redemption,
+                'maximum_points_usable' => $points->maximum_points_usable,
+            ],
+            'pautang' => ['enabled' => $system->pautang_enabled, 'maximum_sacks' => $system->pautang_max_sacks],
         ]);
     }
 
@@ -89,14 +103,17 @@ class OrderController extends Controller
             $pointsToUse = (int) ($attributes['points_to_use'] ?? 0);
             if (! $product->is_active || $product->available_stock < $quantity) throw ValidationException::withMessages(['quantity' => 'There is not enough stock available for this order.']);
             if ($attributes['payment_type'] === 'pautang') {
+                $system = SystemSetting::current();
+                if (! $system->pautang_enabled) throw ValidationException::withMessages(['payment_type' => 'Pautang is not currently available.']);
                 if ($pointsToUse > 0) throw ValidationException::withMessages(['points_to_use' => 'Points can only be redeemed on cash orders.']);
-                if ($quantity !== 1) throw ValidationException::withMessages(['quantity' => 'Pautang orders are limited to one sack.']);
-                if (Order::query()->where('customer_id', $customer->id)->where('payment_type', 'pautang')->where('payment_status', '!=', 'paid')->where('order_status', '!=', 'cancelled')->exists()) throw ValidationException::withMessages(['payment_type' => 'You still have an unpaid pautang order.']);
+                if ($quantity > $system->pautang_max_sacks) throw ValidationException::withMessages(['quantity' => "Pautang orders are limited to {$system->pautang_max_sacks} sack(s)."]);
+                $activePautang = Order::query()->where('customer_id', $customer->id)->where('payment_type', 'pautang')->where('remaining_balance', '>', 0)->where('order_status', '!=', 'cancelled')->count();
+                if ($activePautang >= $system->pautang_max_active) throw ValidationException::withMessages(['payment_type' => "You can only have {$system->pautang_max_active} active pautang order(s)."]);
             }
             $unitPrice = (float) $product->selling_price;
             $subtotal = round($unitPrice * $quantity, 2);
             $pointsDiscount = $this->pointsDiscount($customer, $pointsToUse, $subtotal);
-            $fee = (float) $area->delivery_fee;
+            $fee = $this->deliveryPricing->feeFor($area);
             $finalAmount = max(0, round($subtotal - $pointsDiscount + $fee, 2));
             $previousStock = $product->available_stock;
             $order = Order::create([
@@ -133,7 +150,11 @@ class OrderController extends Controller
     {
         if ($points === 0) return 0.0;
         if ($points > $this->points->currentBalance($customer)) throw ValidationException::withMessages(['points_to_use' => 'You cannot use more points than your available balance.']);
-        $rate = (float) $this->points->settings()->peso_per_point;
+        $settings = $this->points->settings();
+        if (! $settings->is_enabled) throw ValidationException::withMessages(['points_to_use' => 'Points redemption is not currently available.']);
+        if ($points < $settings->minimum_redemption) throw ValidationException::withMessages(['points_to_use' => "Use at least {$settings->minimum_redemption} points per order."]);
+        if ($points > $settings->maximum_points_usable) throw ValidationException::withMessages(['points_to_use' => "You can use at most {$settings->maximum_points_usable} points per order."]);
+        $rate = (float) $settings->peso_per_point;
         if ($rate <= 0) throw ValidationException::withMessages(['points_to_use' => 'Points redemption is not currently available.']);
         if ($points > (int) floor(($subtotal + 0.000001) / $rate)) throw ValidationException::withMessages(['points_to_use' => 'Points used cannot reduce the rice subtotal below zero.']);
         return round($points * $rate, 2);

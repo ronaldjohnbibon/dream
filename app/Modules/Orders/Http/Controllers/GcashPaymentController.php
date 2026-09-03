@@ -60,15 +60,15 @@ class GcashPaymentController extends Controller
         $installment = $this->requestedInstallment($request, $order);
         $this->ensureSubmittable($order, $installment);
 
-        $qrPath = GcashSetting::query()->value('qr_code_path');
-        if (! $qrPath) {
-            throw ValidationException::withMessages(['payment' => 'GCash payments are not available until an administrator configures the QR code.']);
+        $gcash = GcashSetting::query()->find(1);
+        if (! $gcash?->isConfigured()) {
+            throw ValidationException::withMessages(['payment' => 'GCash payments are not available until an administrator configures the account and QR code.']);
         }
 
         return Inertia::render('modules/payments/Create', [
             'order' => $this->paymentOrderData($order),
             'installment' => $installment ? $this->installmentData($installment) : null,
-            'qrCodeUrl' => Storage::disk('public')->url($qrPath),
+            'gcash' => ['account_name' => $gcash->account_name, 'account_number' => $gcash->account_number, 'qr_code_url' => Storage::disk('public')->url($gcash->qr_code_path)],
         ]);
     }
 
@@ -83,7 +83,7 @@ class GcashPaymentController extends Controller
                 $installment = $this->installmentFromAttributes($attributes, $lockedOrder, true);
                 $this->ensureSubmittable($lockedOrder, $installment);
 
-                if (! GcashSetting::query()->value('qr_code_path')) {
+                if (! GcashSetting::query()->find(1)?->isConfigured()) {
                     throw ValidationException::withMessages(['payment' => 'GCash payments are not currently configured.']);
                 }
 

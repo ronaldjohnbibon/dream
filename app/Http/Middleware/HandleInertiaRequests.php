@@ -3,7 +3,9 @@
 namespace App\Http\Middleware;
 
 use App\Modules\Notifications\NotificationData;
+use App\Modules\Settings\Models\SystemSetting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -38,6 +40,7 @@ class HandleInertiaRequests extends Middleware
     {
         return array_merge(parent::share($request), [
             'name' => config('app.name'),
+            'business' => fn () => $this->business(),
             'auth' => [
                 'user' => $request->user()?->only(['id', 'name', 'email', 'is_admin']),
             ],
@@ -46,6 +49,17 @@ class HandleInertiaRequests extends Middleware
             ],
             'notifications' => fn () => $this->notifications($request),
         ]);
+    }
+
+    /** @return array{name: string, logo_url: string|null} */
+    private function business(): array
+    {
+        $settings = SystemSetting::current();
+
+        return [
+            'name' => $settings->business_name,
+            'logo_url' => $settings->logo_path ? Storage::disk('public')->url($settings->logo_path) : null,
+        ];
     }
 
     /** @return array<string, mixed> */

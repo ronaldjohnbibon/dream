@@ -17,7 +17,6 @@ const form = useForm({
     cost_price: '',
     selling_price: '',
     initial_stock: 0,
-    reorder_level: 0,
 });
 
 const submit = () => form.post(route('rice-products.store'));

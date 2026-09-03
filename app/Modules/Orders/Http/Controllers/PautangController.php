@@ -5,6 +5,7 @@ namespace App\Modules\Orders\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\PautangInstallment;
+use App\Modules\Settings\Models\SystemSetting;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -37,7 +38,7 @@ class PautangController extends Controller
             'view' => ['nullable', 'in:active,paid,overdue'],
         ]);
         $view = $filters['view'] ?? 'active';
-        $today = today()->toDateString();
+        $overdueCutoff = today()->subDays(SystemSetting::current()->pautang_grace_period_days)->toDateString();
 
         $orders = Order::query()
             ->with(['customer:id,name,email,mobile_number', 'pautangInstallments'])
@@ -47,12 +48,12 @@ class PautangController extends Controller
             ->when($view === 'paid', fn ($query) => $query->whereDoesntHave('pautangInstallments', fn ($installments) => $installments->where('remaining_balance', '>', 0)))
             ->when($view === 'overdue', fn ($query) => $query->whereHas('pautangInstallments', fn ($installments) => $installments
                 ->where('remaining_balance', '>', 0)
-                ->whereDate('due_date', '<', $today)))
+                ->whereDate('due_date', '<', $overdueCutoff)))
             ->when($view === 'active', fn ($query) => $query
                 ->whereHas('pautangInstallments', fn ($installments) => $installments->where('remaining_balance', '>', 0))
                 ->whereDoesntHave('pautangInstallments', fn ($installments) => $installments
                     ->where('remaining_balance', '>', 0)
-                    ->whereDate('due_date', '<', $today)))
+                    ->whereDate('due_date', '<', $overdueCutoff)))
             ->latest('id')
             ->paginate(15)
             ->withQueryString()
@@ -71,7 +72,8 @@ class PautangController extends Controller
     {
         $installments = $order->pautangInstallments;
         $unpaidInstallments = $installments->filter(fn (PautangInstallment $installment) => (float) $installment->remaining_balance > 0);
-        $overdueInstallments = $unpaidInstallments->filter(fn (PautangInstallment $installment) => $installment->due_date->isBefore(today()));
+        $gracePeriod = SystemSetting::current()->pautang_grace_period_days;
+        $overdueInstallments = $unpaidInstallments->filter(fn (PautangInstallment $installment) => $installment->due_date->copy()->addDays($gracePeriod)->isBefore(today()));
         $nextDueDate = $unpaidInstallments->sortBy('due_date')->first()?->due_date;
         $oldestOverdueDate = $overdueInstallments->sortBy('due_date')->first()?->due_date;
 
@@ -88,7 +90,7 @@ class PautangController extends Controller
             'amount_paid' => number_format((float) $installments->sum('amount_paid'), 2, '.', ''),
             'remaining_balance' => number_format((float) $installments->sum('remaining_balance'), 2, '.', ''),
             'next_due_date' => $nextDueDate?->toDateString(),
-            'days_overdue' => $oldestOverdueDate ? $oldestOverdueDate->diffInDays(today()) : 0,
+            'days_overdue' => $oldestOverdueDate ? $oldestOverdueDate->copy()->addDays($gracePeriod)->diffInDays(today()) : 0,
             'installments' => $installments->map(fn (PautangInstallment $installment) => [
                 'id' => $installment->id,
                 'installment_number' => $installment->installment_number,

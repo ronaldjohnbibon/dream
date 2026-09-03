@@ -7,6 +7,7 @@ use App\Modules\Delivery\Http\Requests\UpdateDeliveryRequest;
 use App\Modules\Delivery\Models\Delivery;
 use App\Modules\Delivery\Models\DeliveryArea;
 use App\Modules\Delivery\Services\DeliveryService;
+use App\Modules\Delivery\Services\DeliveryPricingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,7 +15,7 @@ use Inertia\Response;
 
 class DeliveryController extends Controller
 {
-    public function __construct(private readonly DeliveryService $deliveries) {}
+    public function __construct(private readonly DeliveryService $deliveries, private readonly DeliveryPricingService $pricing) {}
 
     public function index(Request $request): Response
     {
@@ -82,6 +83,6 @@ class DeliveryController extends Controller
     /** @return array<string, mixed> */
     private function areaData(DeliveryArea $area): array
     {
-        return ['id' => $area->id, 'name' => $area->name, 'delivery_fee' => $area->delivery_fee];
+        return ['id' => $area->id, 'name' => $area->name, 'delivery_fee' => number_format($this->pricing->feeFor($area), 2, '.', '')];
     }
 }

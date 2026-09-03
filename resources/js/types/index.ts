@@ -19,6 +19,7 @@ export interface NavItem {
 
 export interface SharedData extends PageProps {
     name: string;
+    business: { name: string; logo_url: string | null };
     auth: Auth;
     flash: {
         success: string | null;

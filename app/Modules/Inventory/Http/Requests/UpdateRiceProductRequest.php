@@ -24,7 +24,6 @@ class UpdateRiceProductRequest extends FormRequest
             'description' => ['nullable', 'string', 'max:2000'],
             'cost_price' => ['required', 'numeric', 'min:0'],
             'selling_price' => ['required', 'numeric', 'min:0'],
-            'reorder_level' => ['required', 'integer', 'min:0'],
         ];
     }
 }

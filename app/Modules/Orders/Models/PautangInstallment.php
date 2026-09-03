@@ -3,6 +3,7 @@
 namespace App\Modules\Orders\Models;
 
 use App\Modules\Points\Models\PointsLedger;
+use App\Modules\Settings\Models\SystemSetting;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -62,7 +63,7 @@ class PautangInstallment extends Model
             return 'paid';
         }
 
-        if ($this->due_date->isBefore(today())) {
+        if ($this->due_date->copy()->addDays(SystemSetting::current()->pautang_grace_period_days)->isBefore(today())) {
             return 'overdue';
         }
 

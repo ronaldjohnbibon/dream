@@ -50,7 +50,7 @@ const movementClass = (movement: StockMovement) => (movement.new_stock >= moveme
                 </div>
             </div>
 
-            <div class="grid gap-4 sm:grid-cols-3">
+            <div class="grid gap-4 sm:grid-cols-2">
                 <Card
                     ><CardHeader class="pb-2"><CardTitle class="text-sm font-medium text-muted-foreground">Available stock</CardTitle></CardHeader
                     ><CardContent
@@ -61,12 +61,6 @@ const movementClass = (movement: StockMovement) => (movement.new_stock >= moveme
                     ><CardHeader class="pb-2"><CardTitle class="text-sm font-medium text-muted-foreground">Reserved stock</CardTitle></CardHeader
                     ><CardContent
                         ><p class="text-3xl font-semibold">{{ product.reserved_stock }}</p></CardContent
-                    ></Card
-                >
-                <Card
-                    ><CardHeader class="pb-2"><CardTitle class="text-sm font-medium text-muted-foreground">Reorder level</CardTitle></CardHeader
-                    ><CardContent
-                        ><p class="text-3xl font-semibold">{{ product.reorder_level }}</p></CardContent
                     ></Card
                 >
             </div>

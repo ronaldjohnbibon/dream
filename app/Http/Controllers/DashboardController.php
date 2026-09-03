@@ -7,6 +7,7 @@ use App\Modules\Orders\Models\GcashPayment;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\PautangInstallment;
 use App\Modules\Points\Models\PointsLedger;
+use App\Modules\Settings\Models\SystemSetting;
 use App\Modules\Users\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,6 +28,7 @@ class DashboardController extends Controller
     private function dashboardData(): array
     {
         $today = today();
+        $system = SystemSetting::current();
         $activeOrders = Order::query()->where('order_status', '!=', 'cancelled');
         $todayOrders = (clone $activeOrders)->whereDate('order_date', $today);
         $activePautang = (clone $activeOrders)
@@ -43,12 +45,12 @@ class DashboardController extends Controller
                 $this->metric('Outstanding Balance', (float) (clone $activeOrders)->where('remaining_balance', '>', 0)->sum('remaining_balance'), 'currency', 'All unpaid order balances'),
                 $this->metric('Overdue Balance', (float) PautangInstallment::query()
                     ->where('remaining_balance', '>', 0)
-                    ->whereDate('due_date', '<', $today)
+                    ->whereDate('due_date', '<', $today->copy()->subDays($system->pautang_grace_period_days))
                     ->whereHas('order', fn (Builder $query) => $query->where('order_status', '!=', 'cancelled'))
                     ->sum('remaining_balance'), 'currency', 'Past-due pautang installments'),
                 $this->metric('Pending Payment Verifications', GcashPayment::query()->where('status', 'pending_verification')->count(), 'number', 'GCash submissions awaiting review'),
                 $this->metric('Available Rice Stock', RiceProduct::query()->where('is_active', true)->sum('available_stock'), 'number', 'Sacks across active products'),
-                $this->metric('Low Stock Products', RiceProduct::query()->where('is_active', true)->whereColumn('available_stock', '<=', 'reorder_level')->count(), 'number', 'Active products at reorder level'),
+                $this->metric('Low Stock Products', RiceProduct::query()->where('is_active', true)->where('available_stock', '<=', $system->low_stock_threshold)->count(), 'number', 'Active products at or below the low-stock threshold'),
                 $this->metric('Points Issued', (int) PointsLedger::query()->where('points', '>', 0)->sum('points'), 'number', 'All-time positive points'),
                 $this->metric('Points Redeemed', abs((int) PointsLedger::query()->where('type', 'redemption')->sum('points')), 'number', 'All-time redeemed points'),
             ],
@@ -190,7 +192,7 @@ class DashboardController extends Controller
             if (! $finalPayment) {
                 continue;
             }
-            if ($finalPayment->payment_date->isAfter($installment->due_date)) {
+            if ($finalPayment->payment_date->isAfter($installment->due_date->copy()->addDays(SystemSetting::current()->pautang_grace_period_days))) {
                 $late++;
             } else {
                 $onTime++;

@@ -9,6 +9,7 @@ use App\Modules\Notifications\Services\CustomerNotificationService;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Points\Models\PointsLedger;
 use App\Modules\Points\Services\PointsService;
+use App\Modules\Settings\Models\SystemSetting;
 use App\Modules\Users\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -18,6 +19,7 @@ class DeliveryService
     public function __construct(
         private readonly PointsService $points,
         private readonly CustomerNotificationService $notifications,
+        private readonly DeliveryPricingService $pricing,
     ) {}
 
     /** @param array<string, mixed> $attributes */
@@ -52,7 +54,7 @@ class DeliveryService
                 }
             }
 
-            $newFee = (float) $area->delivery_fee;
+            $newFee = $this->pricing->feeFor($area);
             $oldFee = (float) $lockedDelivery->delivery_fee;
             $hasCommittedBalance = $order->gcashPayments()->exists() || $order->pautangInstallments()->exists();
             if ($newFee !== $oldFee && $hasCommittedBalance) {
@@ -164,11 +166,22 @@ class DeliveryService
 
     private function createPautangInstallments(Order $order): void
     {
-        $first = round((float) $order->final_amount / 2, 2);
-        $second = round((float) $order->final_amount - $first, 2);
-        $order->pautangInstallments()->createMany([
-            ['installment_number' => 1, 'amount_due' => number_format($first, 2, '.', ''), 'due_date' => today()->addDays(15), 'amount_paid' => '0.00', 'remaining_balance' => number_format($first, 2, '.', ''), 'status' => 'pending'],
-            ['installment_number' => 2, 'amount_due' => number_format($second, 2, '.', ''), 'due_date' => today()->addDays(30), 'amount_paid' => '0.00', 'remaining_balance' => number_format($second, 2, '.', ''), 'status' => 'pending'],
-        ]);
+        $settings = SystemSetting::current();
+        $installments = $settings->pautang_installments;
+        $amounts = [];
+        $remaining = round((float) $order->final_amount, 2);
+        for ($number = 1; $number <= $installments; $number++) {
+            $amount = $number === $installments ? $remaining : round((float) $order->final_amount / $installments, 2);
+            $remaining = round($remaining - $amount, 2);
+            $amounts[] = [
+                'installment_number' => $number,
+                'amount_due' => number_format($amount, 2, '.', ''),
+                'due_date' => today()->addDays((int) floor(($settings->pautang_payment_term_days * $number) / $installments)),
+                'amount_paid' => '0.00',
+                'remaining_balance' => number_format($amount, 2, '.', ''),
+                'status' => 'pending',
+            ];
+        }
+        $order->pautangInstallments()->createMany($amounts);
     }
 }

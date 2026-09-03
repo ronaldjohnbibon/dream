@@ -53,13 +53,9 @@ const emit = defineEmits<{ submit: [] }>();
             </FormField>
         </div>
 
-        <div class="grid gap-6 sm:grid-cols-2">
+        <div class="grid gap-6">
             <FormField v-if="!editing" id="initial-stock" label="Initial available stock" :error="form.errors.initial_stock" required>
                 <Input id="initial-stock" v-model.number="form.initial_stock" type="number" min="0" step="1" required />
-            </FormField>
-
-            <FormField id="reorder-level" label="Reorder level" :error="form.errors.reorder_level" required>
-                <Input id="reorder-level" v-model.number="form.reorder_level" type="number" min="0" step="1" required />
             </FormField>
         </div>
 

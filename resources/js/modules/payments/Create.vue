@@ -10,7 +10,7 @@ import { computed } from 'vue';
 const props = defineProps<{
     order: { id: number; order_number: string; payment_type: 'cash' | 'pautang'; remaining_balance: string };
     installment: { id: number; installment_number: number; amount_due: string; remaining_balance: string } | null;
-    qrCodeUrl: string;
+    gcash: { account_name: string; account_number: string; qr_code_url: string };
 }>();
 
 const breadcrumbs = computed<BreadcrumbItem[]>(() => [
@@ -45,8 +45,8 @@ const submit = () => form.post(route('gcash-payments.store', { order: props.orde
 
             <div class="grid gap-6 lg:grid-cols-2">
                 <Card>
-                    <CardHeader><CardTitle>Scan to pay</CardTitle><CardDescription>Use GCash to scan this QR code, then upload your proof of payment.</CardDescription></CardHeader>
-                    <CardContent><img :src="qrCodeUrl" alt="GCash payment QR code" class="mx-auto max-h-96 rounded-lg border object-contain" /></CardContent>
+                    <CardHeader><CardTitle>Scan to pay</CardTitle><CardDescription>Send to {{ gcash.account_name }} · {{ gcash.account_number }}, then upload your proof of payment.</CardDescription></CardHeader>
+                    <CardContent><img :src="gcash.qr_code_url" alt="GCash payment QR code" class="mx-auto max-h-96 rounded-lg border object-contain" /></CardContent>
                 </Card>
 
                 <Card>

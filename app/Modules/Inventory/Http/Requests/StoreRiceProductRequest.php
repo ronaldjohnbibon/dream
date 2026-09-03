@@ -22,7 +22,6 @@ class StoreRiceProductRequest extends FormRequest
             'cost_price' => ['required', 'numeric', 'min:0'],
             'selling_price' => ['required', 'numeric', 'min:0'],
             'initial_stock' => ['required', 'integer', 'min:0'],
-            'reorder_level' => ['required', 'integer', 'min:0'],
         ];
     }
 }

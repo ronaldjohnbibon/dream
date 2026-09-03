@@ -9,6 +9,7 @@ use App\Modules\Orders\Models\GcashPayment;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\PautangInstallment;
 use App\Modules\Points\Models\PointsLedger;
+use App\Modules\Settings\Models\SystemSetting;
 use App\Modules\Users\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,6 +26,7 @@ class ReportsController extends Controller
         abort_unless($request->user()?->is_admin, 403);
 
         $today = today();
+        $system = SystemSetting::current();
         $validated = $request->validate([
             'date_from' => ['nullable', 'date', 'before_or_equal:date_to'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
@@ -51,7 +53,7 @@ class ReportsController extends Controller
             ->where('remaining_balance', '>', 0);
         $openPautang = (clone $openOrders)->where('payment_type', 'pautang');
         $overdueInstallments = $this->openInstallments($filters)
-            ->whereDate('due_date', '<', $asOf->toDateString());
+            ->whereDate('due_date', '<', $asOf->copy()->subDays($system->pautang_grace_period_days)->toDateString());
         $approvedPayments = $this->approvedPayments($filters);
 
         $salesSummary = [
@@ -115,7 +117,7 @@ class ReportsController extends Controller
                 'inventory' => [
                     'available_stock' => (int) RiceProduct::query()->sum('available_stock'),
                     'reserved_stock' => (int) RiceProduct::query()->sum('reserved_stock'),
-                    'low_stock_count' => RiceProduct::query()->where('is_active', true)->whereColumn('available_stock', '<=', 'reorder_level')->count(),
+                    'low_stock_count' => RiceProduct::query()->where('is_active', true)->where('available_stock', '<=', $system->low_stock_threshold)->count(),
                 ],
                 'movements' => [
                     'count' => (clone $inventoryMovements)->count(),
@@ -128,7 +130,7 @@ class ReportsController extends Controller
                 ],
                 'profit' => $profitSummary,
             ],
-            'aging' => $this->aging($filters, $asOf),
+            'aging' => $this->aging($filters, $asOf, $system->pautang_grace_period_days),
             'orders' => (clone $matchingOrders)
                 ->with(['customer:id,name', 'riceProduct:id,name,brand'])
                 ->latest('order_date')->latest('id')
@@ -140,14 +142,14 @@ class ReportsController extends Controller
                 ->latest('order_date')->latest('id')
                 ->paginate(self::PER_PAGE, ['*'], 'pautang_page')
                 ->withQueryString()
-                ->through(fn (Order $order) => $this->pautangRow($order, $asOf)),
+                ->through(fn (Order $order) => $this->pautangRow($order, $asOf, $system->pautang_grace_period_days)),
             'outstanding' => (clone $openOrders)
                 ->with('customer:id,name')
                 ->latest('order_date')->latest('id')
                 ->paginate(self::PER_PAGE, ['*'], 'outstanding_page')
                 ->withQueryString()
                 ->through(fn (Order $order) => $this->balanceRow($order)),
-            'overdueCustomers' => $this->overdueCustomers($filters, $asOf),
+            'overdueCustomers' => $this->overdueCustomers($filters, $asOf, $system->pautang_grace_period_days),
             'payments' => (clone $approvedPayments)
                 ->with(['customer:id,name', 'order:id,order_number,payment_type', 'pautangInstallment:id,installment_number,due_date'])
                 ->latest('payment_date')->latest('id')
@@ -164,7 +166,6 @@ class ReportsController extends Controller
                     'brand' => $product->brand,
                     'available_stock' => $product->available_stock,
                     'reserved_stock' => $product->reserved_stock,
-                    'reorder_level' => $product->reorder_level,
                     'is_active' => $product->is_active,
                 ]),
             'movements' => $inventoryMovements
@@ -259,7 +260,7 @@ class ReportsController extends Controller
     /** @param array<string, mixed> $filters
      *  @return array<string, array{label: string, amount: string}>
      */
-    private function aging(array $filters, Carbon $asOf): array
+    private function aging(array $filters, Carbon $asOf, int $gracePeriodDays): array
     {
         $buckets = [
             'current' => ['label' => 'Current', 'amount' => 0.0],
@@ -271,7 +272,9 @@ class ReportsController extends Controller
 
         $installments = $this->openInstallments($filters)->get(['due_date', 'remaining_balance']);
         foreach ($installments as $installment) {
-            $daysOverdue = Carbon::parse($installment->due_date)->startOfDay()->diffInDays($asOf, false);
+            $daysOverdue = Carbon::parse($installment->due_date)->startOfDay()
+                ->addDays($gracePeriodDays)
+                ->diffInDays($asOf, false);
             $key = match (true) {
                 $daysOverdue <= 0 => 'current',
                 $daysOverdue <= 7 => 'one_to_seven',
@@ -297,13 +300,13 @@ class ReportsController extends Controller
     }
 
     /** @param array<string, mixed> $filters */
-    private function overdueCustomers(array $filters, Carbon $asOf)
+    private function overdueCustomers(array $filters, Carbon $asOf, int $gracePeriodDays)
     {
         $query = PautangInstallment::query()
             ->join('orders', 'orders.id', '=', 'pautang_installments.order_id')
             ->join('users', 'users.id', '=', 'orders.customer_id')
             ->where('pautang_installments.remaining_balance', '>', 0)
-            ->whereDate('pautang_installments.due_date', '<', $asOf->toDateString())
+            ->whereDate('pautang_installments.due_date', '<', $asOf->copy()->subDays($gracePeriodDays)->toDateString())
             ->where('orders.order_status', '!=', 'cancelled')
             ->when($filters['customer_id'], fn ($query, int $customerId) => $query->where('orders.customer_id', $customerId))
             ->when($filters['payment_type'] !== 'all', fn ($query) => $query->where('orders.payment_type', $filters['payment_type']))
@@ -315,7 +318,7 @@ class ReportsController extends Controller
 
         return $query->paginate(self::PER_PAGE, ['*'], 'overdue_page')
             ->withQueryString()
-            ->through(function ($row) use ($asOf): array {
+            ->through(function ($row) use ($asOf, $gracePeriodDays): array {
                 $oldestDue = Carbon::parse($row->oldest_due_date)->startOfDay();
 
                 return [
@@ -323,7 +326,7 @@ class ReportsController extends Controller
                     'name' => $row->name,
                     'remaining_balance' => $this->money($row->remaining_balance),
                     'oldest_due_date' => $oldestDue->toDateString(),
-                    'days_overdue' => $oldestDue->diffInDays($asOf),
+                    'days_overdue' => $oldestDue->addDays($gracePeriodDays)->diffInDays($asOf),
                 ];
             });
     }
@@ -345,7 +348,7 @@ class ReportsController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function pautangRow(Order $order, Carbon $asOf): array
+    private function pautangRow(Order $order, Carbon $asOf, int $gracePeriodDays): array
     {
         $unpaid = $order->pautangInstallments->filter(fn (PautangInstallment $installment) => (float) $installment->remaining_balance > 0);
         $nextDue = $unpaid->sortBy('due_date')->first()?->due_date;
@@ -357,7 +360,7 @@ class ReportsController extends Controller
             'amount_paid' => $this->money($order->amount_paid),
             'remaining_balance' => $this->money($order->remaining_balance),
             'next_due_date' => $nextDue?->toDateString(),
-            'days_overdue' => $nextDue && $nextDue->isBefore($asOf) ? $nextDue->diffInDays($asOf) : 0,
+            'days_overdue' => $nextDue && $nextDue->copy()->addDays($gracePeriodDays)->isBefore($asOf) ? $nextDue->copy()->addDays($gracePeriodDays)->diffInDays($asOf) : 0,
         ];
     }
 

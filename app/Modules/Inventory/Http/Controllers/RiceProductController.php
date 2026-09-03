@@ -8,6 +8,7 @@ use App\Modules\Inventory\Http\Requests\StoreRiceProductRequest;
 use App\Modules\Inventory\Http\Requests\UpdateRiceProductRequest;
 use App\Modules\Inventory\Models\RiceProduct;
 use App\Modules\Inventory\Models\StockMovement;
+use App\Modules\Settings\Models\SystemSetting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +31,7 @@ class RiceProductController extends Controller
         $search = $filters['search'] ?? '';
         $status = $filters['status'] ?? 'all';
         $lowStock = ($filters['low_stock'] ?? '0') === '1';
+        $lowStockThreshold = SystemSetting::current()->low_stock_threshold;
 
         $products = RiceProduct::query()
             ->when($search !== '', fn ($query) => $query->where(fn ($searchQuery) => $searchQuery
@@ -39,7 +41,7 @@ class RiceProductController extends Controller
             ->when($status === 'inactive', fn ($query) => $query->where('is_active', false))
             ->when($lowStock, fn ($query) => $query
                 ->where('is_active', true)
-                ->whereColumn('available_stock', '<=', 'reorder_level'))
+                ->where('available_stock', '<=', $lowStockThreshold))
             ->orderBy('name')
             ->paginate(15)
             ->withQueryString()
@@ -52,6 +54,7 @@ class RiceProductController extends Controller
                 'status' => $status,
                 'low_stock' => $lowStock,
             ],
+            'lowStockThreshold' => $lowStockThreshold,
         ]);
     }
 
@@ -186,7 +189,7 @@ class RiceProductController extends Controller
         };
     }
 
-    /** @return array{id: int, name: string, brand: string, description: string|null, sack_size: string, cost_price: string, selling_price: string, available_stock: int, reserved_stock: int, reorder_level: int, is_active: bool, created_at: string, updated_at: string} */
+    /** @return array{id: int, name: string, brand: string, description: string|null, sack_size: string, cost_price: string, selling_price: string, available_stock: int, reserved_stock: int, is_active: bool, created_at: string, updated_at: string} */
     private function riceProductData(RiceProduct $product): array
     {
         return [
@@ -199,7 +202,6 @@ class RiceProductController extends Controller
             'selling_price' => $product->selling_price,
             'available_stock' => $product->available_stock,
             'reserved_stock' => $product->reserved_stock,
-            'reorder_level' => $product->reorder_level,
             'is_active' => $product->is_active,
             'created_at' => $product->created_at->toISOString(),
             'updated_at' => $product->updated_at->toISOString(),
