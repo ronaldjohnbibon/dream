@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Points\Http\Requests\AdjustPointsRequest;
 use App\Modules\Points\Models\PointsLedger;
 use App\Modules\Points\Services\PointsService;
+use App\Modules\Logs\Services\ActivityLogger;
 use App\Modules\Users\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,7 +17,7 @@ use Inertia\Response;
 
 class PointsController extends Controller
 {
-    public function __construct(private readonly PointsService $points)
+    public function __construct(private readonly PointsService $points, private readonly ActivityLogger $activityLogs)
     {
     }
 
@@ -50,11 +51,19 @@ class PointsController extends Controller
                 ]);
             }
 
-            $this->points->createAdminAdjustment(
+            $ledger = $this->points->createAdminAdjustment(
                 $lockedCustomer,
                 $points,
                 trim($attributes['reason']),
                 $request->user(),
+            );
+            $change = $points > 0 ? "+{$points}" : (string) $points;
+            $this->activityLogs->record(
+                $request->user(),
+                'points',
+                'adjusted',
+                $ledger,
+                "Points adjusted for {$lockedCustomer->name}: {$change} points. Reason: ".trim($attributes['reason']),
             );
         });
 

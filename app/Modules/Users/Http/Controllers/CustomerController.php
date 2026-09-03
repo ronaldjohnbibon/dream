@@ -6,15 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Modules\Users\Http\Requests\StoreCustomerRequest;
 use App\Modules\Users\Http\Requests\UpdateCustomerRequest;
 use App\Modules\Users\Models\User;
+use App\Modules\Logs\Services\ActivityLogger;
 use App\Modules\Points\Services\PointsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CustomerController extends Controller
 {
-    public function __construct(private readonly PointsService $points)
+    public function __construct(private readonly PointsService $points, private readonly ActivityLogger $activityLogs)
     {
     }
 
@@ -105,22 +107,38 @@ class CustomerController extends Controller
         return to_route('customers.show', $customer)->with('success', 'Customer updated successfully.');
     }
 
-    public function suspend(User $customer): RedirectResponse
+    public function suspend(Request $request, User $customer): RedirectResponse
     {
         $this->authorize('update', $customer);
         $this->ensureCustomer($customer);
 
-        $customer->update(['account_status' => 'suspended']);
+        DB::transaction(function () use ($request, $customer): void {
+            $lockedCustomer = User::query()->lockForUpdate()->findOrFail($customer->id);
+            if ($lockedCustomer->account_status === 'suspended') {
+                return;
+            }
+
+            $lockedCustomer->update(['account_status' => 'suspended']);
+            $this->activityLogs->record($request->user(), 'customers', 'suspended', $lockedCustomer, "Customer {$lockedCustomer->name} suspended.");
+        });
 
         return to_route('customers.show', $customer)->with('success', 'Customer suspended successfully.');
     }
 
-    public function reactivate(User $customer): RedirectResponse
+    public function reactivate(Request $request, User $customer): RedirectResponse
     {
         $this->authorize('update', $customer);
         $this->ensureCustomer($customer);
 
-        $customer->update(['account_status' => 'good_standing']);
+        DB::transaction(function () use ($request, $customer): void {
+            $lockedCustomer = User::query()->lockForUpdate()->findOrFail($customer->id);
+            if ($lockedCustomer->account_status !== 'suspended') {
+                return;
+            }
+
+            $lockedCustomer->update(['account_status' => 'good_standing']);
+            $this->activityLogs->record($request->user(), 'customers', 'reactivated', $lockedCustomer, "Customer {$lockedCustomer->name} reactivated.");
+        });
 
         return to_route('customers.show', $customer)->with('success', 'Customer reactivated successfully.');
     }

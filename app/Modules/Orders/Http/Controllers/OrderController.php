@@ -7,6 +7,7 @@ use App\Modules\Delivery\Models\Delivery;
 use App\Modules\Delivery\Models\DeliveryArea;
 use App\Modules\Delivery\Services\DeliveryPricingService;
 use App\Modules\Inventory\Models\RiceProduct;
+use App\Modules\Logs\Services\ActivityLogger;
 use App\Modules\Notifications\Services\CustomerNotificationService;
 use App\Modules\Orders\Http\Requests\StoreOrderRequest;
 use App\Modules\Orders\Models\GcashPayment;
@@ -29,6 +30,7 @@ class OrderController extends Controller
         private readonly PointsService $points,
         private readonly CustomerNotificationService $notifications,
         private readonly DeliveryPricingService $deliveryPricing,
+        private readonly ActivityLogger $activityLogs,
     ) {}
 
     public function index(Request $request): Response
@@ -129,6 +131,13 @@ class OrderController extends Controller
             }
             $product->update(['available_stock' => $previousStock - $quantity, 'reserved_stock' => $product->reserved_stock + $quantity]);
             $product->stockMovements()->create(['quantity' => $quantity, 'type' => 'order', 'previous_stock' => $previousStock, 'new_stock' => $previousStock - $quantity, 'order_id' => $order->id, 'notes' => "Order {$order->order_number} reserved.", 'user_id' => $customer->id]);
+            $this->activityLogs->record(
+                $customer,
+                'orders',
+                'created',
+                $order,
+                "Order {$order->order_number} created for {$quantity} sack(s) of {$product->name}.",
+            );
             return $order;
         });
         if ($redeemedPoints) {

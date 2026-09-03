@@ -10,6 +10,7 @@ use App\Modules\Orders\Models\GcashPayment;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\PautangInstallment;
 use App\Modules\Notifications\Services\CustomerNotificationService;
+use App\Modules\Logs\Services\ActivityLogger;
 use App\Modules\Points\Models\PointsLedger;
 use App\Modules\Points\Services\PointsService;
 use App\Modules\Settings\Models\GcashSetting;
@@ -28,6 +29,7 @@ class GcashPaymentController extends Controller
     public function __construct(
         private readonly PointsService $points,
         private readonly CustomerNotificationService $notifications,
+        private readonly ActivityLogger $activityLogs,
     ) {}
 
     public function index(Request $request): Response
@@ -197,6 +199,13 @@ class GcashPaymentController extends Controller
                     'reviewed_by' => $request->user()->id,
                     'reviewed_at' => now(),
                 ]);
+                $this->activityLogs->record(
+                    $request->user(),
+                    'payments',
+                    'approved',
+                    $payment,
+                    "GCash payment #{$payment->id} for order {$order->order_number} approved.",
+                );
 
                 if ($installment) {
                     $earnedLedger = $this->points->awardOnTimeInstallmentPayment($order, $installment, $payment);
@@ -224,12 +233,20 @@ class GcashPaymentController extends Controller
         DB::transaction(function () use ($request, $gcashPayment): void {
             $payment = GcashPayment::query()->lockForUpdate()->findOrFail($gcashPayment->id);
             $this->ensurePending($payment);
+            $order = Order::query()->findOrFail($payment->order_id);
             $payment->update([
                 'status' => 'rejected',
                 'remarks' => $request->validated('remarks'),
                 'reviewed_by' => $request->user()->id,
                 'reviewed_at' => now(),
             ]);
+            $this->activityLogs->record(
+                $request->user(),
+                'payments',
+                'rejected',
+                $payment,
+                "GCash payment #{$payment->id} for order {$order->order_number} rejected.",
+            );
         });
 
         $this->notifications->paymentRejected($gcashPayment->fresh(['order', 'customer']));

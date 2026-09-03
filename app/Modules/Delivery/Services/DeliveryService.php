@@ -5,6 +5,7 @@ namespace App\Modules\Delivery\Services;
 use App\Modules\Delivery\Models\Delivery;
 use App\Modules\Delivery\Models\DeliveryArea;
 use App\Modules\Inventory\Models\RiceProduct;
+use App\Modules\Logs\Services\ActivityLogger;
 use App\Modules\Notifications\Services\CustomerNotificationService;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Points\Models\PointsLedger;
@@ -20,6 +21,7 @@ class DeliveryService
         private readonly PointsService $points,
         private readonly CustomerNotificationService $notifications,
         private readonly DeliveryPricingService $pricing,
+        private readonly ActivityLogger $activityLogs,
     ) {}
 
     /** @param array<string, mixed> $attributes */
@@ -90,6 +92,7 @@ class DeliveryService
                 User::query()->lockForUpdate()->findOrFail($order->customer_id);
                 $this->points->refundOrderRedemption($order);
                 $order->pautangInstallments()->delete();
+                $this->activityLogs->record($admin, 'orders', 'cancelled', $order, "Order {$order->order_number} cancelled.");
             }
 
             if ($isDelivered) {

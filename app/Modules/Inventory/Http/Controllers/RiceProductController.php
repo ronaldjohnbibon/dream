@@ -8,6 +8,7 @@ use App\Modules\Inventory\Http\Requests\StoreRiceProductRequest;
 use App\Modules\Inventory\Http\Requests\UpdateRiceProductRequest;
 use App\Modules\Inventory\Models\RiceProduct;
 use App\Modules\Inventory\Models\StockMovement;
+use App\Modules\Logs\Services\ActivityLogger;
 use App\Modules\Settings\Models\SystemSetting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,10 @@ use Inertia\Response;
 
 class RiceProductController extends Controller
 {
+    public function __construct(private readonly ActivityLogger $activityLogs)
+    {
+    }
+
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', RiceProduct::class);
@@ -163,7 +168,7 @@ class RiceProductController extends Controller
             }
 
             $product->update(['available_stock' => $newStock]);
-            $product->stockMovements()->create([
+            $movement = $product->stockMovements()->create([
                 'quantity' => $attributes['quantity'],
                 'type' => $attributes['type'],
                 'previous_stock' => $previousStock,
@@ -172,6 +177,14 @@ class RiceProductController extends Controller
                 'notes' => $attributes['notes'] ?? null,
                 'user_id' => $request->user()->id,
             ]);
+            $movementType = str_replace('_', ' ', $attributes['type']);
+            $this->activityLogs->record(
+                $request->user(),
+                'inventory',
+                'adjusted',
+                $movement,
+                "Inventory {$movementType} for {$product->name}: {$attributes['quantity']} sack(s), stock changed from {$previousStock} to {$newStock}.",
+            );
         });
 
         return to_route('rice-products.show', $riceProduct)->with('success', 'Stock movement recorded successfully.');

@@ -3,6 +3,7 @@
 use App\Http\Controllers\DashboardController;
 use App\Modules\Inventory\Http\Controllers\RiceProductController;
 use App\Modules\Inventory\Http\Controllers\StockMovementController;
+use App\Modules\Logs\Http\Controllers\ActivityLogController;
 use App\Modules\Notifications\Http\Controllers\NotificationController;
 use App\Modules\Delivery\Http\Controllers\DeliveryAreaController;
 use App\Modules\Delivery\Http\Controllers\DeliveryController;
@@ -61,6 +62,8 @@ Route::middleware('auth')->group(function () {
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::patch('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
     Route::patch('notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+
+    Route::get('activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
 });
 
 require __DIR__.'/settings.php';
