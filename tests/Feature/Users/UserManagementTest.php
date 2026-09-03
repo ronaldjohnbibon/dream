@@ -21,20 +21,19 @@ class UserManagementTest extends TestCase
         $this->actingAs(User::factory()->create())->get('/users')->assertForbidden();
     }
 
-    public function test_administrators_can_search_filter_sort_and_paginate_users(): void
+    public function test_administrators_can_search_sort_and_paginate_administrators(): void
     {
         $admin = User::factory()->create(['is_admin' => true]);
         User::factory()->create(['name' => 'Alice Admin', 'is_admin' => true]);
-        User::factory()->count(16)->create(['is_admin' => false]);
+        User::factory()->count(16)->create(['is_admin' => true]);
 
         $this->actingAs($admin)
-            ->get('/users?search=Alice&account_type=admin&sort=name&direction=asc')
+            ->get('/users?search=Alice&sort=name&direction=asc')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('modules/users/Index', false)
                 ->has('users.data', 1)
                 ->where('users.data.0.name', 'Alice Admin')
-                ->where('filters.account_type', 'admin')
                 ->where('filters.sort', 'name'));
 
         $this->actingAs($admin)
@@ -52,12 +51,11 @@ class UserManagementTest extends TestCase
                 'email' => 'new@example.com',
                 'password' => 'password',
                 'password_confirmation' => 'password',
-                'is_admin' => false,
             ])
             ->assertRedirect();
 
         $user = User::query()->where('email', 'new@example.com')->firstOrFail();
-        $this->assertFalse($user->is_admin);
+        $this->assertTrue($user->is_admin);
 
         $this->actingAs($admin)
             ->put("/users/{$user->id}", [
@@ -65,7 +63,6 @@ class UserManagementTest extends TestCase
                 'email' => $user->email,
                 'password' => '',
                 'password_confirmation' => '',
-                'is_admin' => true,
             ])
             ->assertRedirect("/users/{$user->id}");
 
@@ -92,9 +89,10 @@ class UserManagementTest extends TestCase
                 'email' => $admin->email,
                 'password' => '',
                 'password_confirmation' => '',
-                'is_admin' => false,
             ])
-            ->assertSessionHasErrors('is_admin');
+            ->assertRedirect("/users/{$admin->id}");
+
+        $this->assertTrue($admin->refresh()->is_admin);
     }
 
     public function test_the_create_admin_command_creates_an_administrator(): void

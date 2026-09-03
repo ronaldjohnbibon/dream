@@ -7,7 +7,12 @@ use App\Modules\Users\Http\Requests\StoreCustomerRequest;
 use App\Modules\Users\Http\Requests\UpdateCustomerRequest;
 use App\Modules\Users\Models\User;
 use App\Modules\Logs\Services\ActivityLogger;
+use App\Modules\Orders\Models\GcashPayment;
+use App\Modules\Orders\Models\Order;
+use App\Modules\Orders\Models\PautangInstallment;
+use App\Modules\Points\Models\PointsLedger;
 use App\Modules\Points\Services\PointsService;
+use App\Modules\Settings\Models\SystemSetting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -76,10 +81,32 @@ class CustomerController extends Controller
     {
         $this->authorize('view', $customer);
         $this->ensureCustomer($customer);
+        $gracePeriodDays = SystemSetting::current()->pautang_grace_period_days;
 
         return Inertia::render('modules/customers/Show', [
             'customer' => $this->customerData($customer),
-            'summary' => $this->summaryData($customer),
+            'summary' => $this->summaryData($customer, $gracePeriodDays),
+            'orders' => $customer->orders()
+                ->with(['riceProduct:id,name,brand,sack_size', 'pautangInstallments'])
+                ->latest('order_date')
+                ->latest('id')
+                ->paginate(10, ['*'], 'orders_page')
+                ->withQueryString()
+                ->through(fn (Order $order) => $this->orderHistoryData($order, $gracePeriodDays)),
+            'payments' => $customer->gcashPayments()
+                ->with(['order:id,order_number,payment_type', 'pautangInstallment:id,installment_number'])
+                ->latest('payment_date')
+                ->latest('id')
+                ->paginate(10, ['*'], 'payments_page')
+                ->withQueryString()
+                ->through(fn (GcashPayment $payment) => $this->paymentHistoryData($payment)),
+            'pointsHistory' => $customer->pointsLedgers()
+                ->with(['order:id,order_number', 'pautangInstallment:id,installment_number'])
+                ->latest('transaction_date')
+                ->latest('id')
+                ->paginate(10, ['*'], 'points_page')
+                ->withQueryString()
+                ->through(fn (PointsLedger $entry) => $this->pointsHistoryData($entry)),
         ]);
     }
 
@@ -167,23 +194,118 @@ class CustomerController extends Controller
     }
 
     /**
-     * @return array{total_orders: int, completed_pautang: int, active_pautang: int, on_time_payments: int, late_payments: int, outstanding_balance: int, current_points: int}
+     * @return array{total_orders: int, completed_pautang: int, active_pautang: int, on_time_payments: int, late_payments: int, outstanding_balance: float, current_points: int, peso_equivalent: string}
      */
-    private function summaryData(User $customer): array
+    private function summaryData(User $customer, int $gracePeriodDays): array
     {
-        $pautangOrders = $customer->orders()->where('payment_type', 'pautang');
-        $activePautang = (clone $pautangOrders)
-            ->where('payment_status', '!=', 'paid')
+        $pautangOrders = $customer->orders()
+            ->where('payment_type', 'pautang')
             ->where('order_status', '!=', 'cancelled');
+        $activePautang = (clone $pautangOrders)
+            ->where('remaining_balance', '>', 0);
+        $completedInstallments = PautangInstallment::query()
+            ->where('remaining_balance', '<=', 0)
+            ->whereHas('order', fn ($query) => $query
+                ->where('customer_id', $customer->id)
+                ->where('order_status', '!=', 'cancelled'))
+            ->with(['gcashPayments' => fn ($query) => $query
+                ->where('status', 'approved')
+                ->select(['id', 'pautang_installment_id', 'payment_date'])])
+            ->get();
+
+        $onTimePayments = 0;
+        $latePayments = 0;
+        foreach ($completedInstallments as $installment) {
+            $finalPaymentDate = $installment->gcashPayments->max('payment_date');
+            if ($finalPaymentDate === null) {
+                continue;
+            }
+
+            if ($finalPaymentDate->isAfter($installment->due_date->copy()->addDays($gracePeriodDays))) {
+                $latePayments++;
+            } else {
+                $onTimePayments++;
+            }
+        }
+
+        $currentPoints = $this->points->currentBalance($customer);
+        $pointsSettings = $this->points->settings();
 
         return [
             'total_orders' => $customer->orders()->count(),
-            'completed_pautang' => (clone $pautangOrders)->where('payment_status', 'paid')->count(),
+            'completed_pautang' => (clone $pautangOrders)->where('remaining_balance', '<=', 0)->count(),
             'active_pautang' => (clone $activePautang)->count(),
-            'on_time_payments' => 0,
-            'late_payments' => 0,
-            'outstanding_balance' => (float) (clone $activePautang)->sum('final_amount'),
-            'current_points' => $this->points->currentBalance($customer),
+            'on_time_payments' => $onTimePayments,
+            'late_payments' => $latePayments,
+            'outstanding_balance' => (float) (clone $activePautang)->sum('remaining_balance'),
+            'current_points' => $currentPoints,
+            'peso_equivalent' => number_format($currentPoints * (float) $pointsSettings->peso_per_point, 2, '.', ''),
         ];
+    }
+
+    /** @return array<string, mixed> */
+    private function orderHistoryData(Order $order, int $gracePeriodDays): array
+    {
+        return [
+            'id' => $order->id,
+            'order_number' => $order->order_number,
+            'order_date' => $order->order_date->toDateString(),
+            'product_name' => $order->riceProduct ? "{$order->riceProduct->name} {$order->riceProduct->brand}" : 'Deleted product',
+            'sack_size' => $order->riceProduct?->sack_size,
+            'quantity' => $order->quantity,
+            'payment_type' => $order->payment_type,
+            'payment_status' => $this->orderPaymentStatus($order, $gracePeriodDays),
+            'order_status' => $order->order_status,
+            'final_amount' => $order->final_amount,
+            'remaining_balance' => $order->remaining_balance,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function paymentHistoryData(GcashPayment $payment): array
+    {
+        return [
+            'id' => $payment->id,
+            'payment_date' => $payment->payment_date->toDateString(),
+            'amount' => $payment->amount,
+            'status' => $payment->status,
+            'order' => ['id' => $payment->order->id, 'order_number' => $payment->order->order_number],
+            'payment_type' => $payment->order->payment_type,
+            'installment_number' => $payment->pautangInstallment?->installment_number,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function pointsHistoryData(PointsLedger $entry): array
+    {
+        return [
+            'id' => $entry->id,
+            'type' => $entry->type,
+            'points' => $entry->points,
+            'description' => $entry->description,
+            'transaction_date' => $entry->transaction_date->toDateString(),
+            'order' => $entry->order ? ['id' => $entry->order->id, 'order_number' => $entry->order->order_number] : null,
+            'installment_number' => $entry->pautangInstallment?->installment_number,
+        ];
+    }
+
+    private function orderPaymentStatus(Order $order, int $gracePeriodDays): string
+    {
+        if ($order->payment_type !== 'pautang' || $order->pautangInstallments->isEmpty()) {
+            return $order->payment_status;
+        }
+
+        if ($order->pautangInstallments->every(fn (PautangInstallment $installment) => (float) $installment->remaining_balance <= 0)) {
+            return 'paid';
+        }
+
+        if ($order->pautangInstallments->contains(fn (PautangInstallment $installment) => (float) $installment->remaining_balance > 0
+            && $installment->due_date->copy()->addDays($gracePeriodDays)->isBefore(today()))) {
+            return 'overdue';
+        }
+
+        return $order->pautangInstallments->contains(fn (PautangInstallment $installment) => (float) $installment->amount_paid > 0)
+            ? 'partially_paid'
+            : 'unpaid';
     }
 }

@@ -7,6 +7,7 @@ use App\Modules\Orders\Models\GcashPayment;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\PautangInstallment;
 use App\Modules\Points\Models\PointsLedger;
+use App\Modules\Points\Services\PointsService;
 use App\Modules\Settings\Models\SystemSetting;
 use App\Modules\Users\Models\User;
 use Carbon\Carbon;
@@ -17,11 +18,140 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
+    public function __construct(private readonly PointsService $points)
+    {
+    }
+
     public function __invoke(Request $request): Response
     {
+        $user = $request->user();
+
         return Inertia::render('Dashboard', [
-            'dashboard' => $request->user()->is_admin ? $this->dashboardData() : null,
+            'dashboard' => $user->is_admin ? $this->dashboardData() : $this->customerDashboardData($user),
         ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function customerDashboardData(User $customer): array
+    {
+        $points = $this->points->settings();
+        $pointsBalance = $this->points->currentBalance($customer);
+        $activeOrder = $customer->orders()
+            ->with(['riceProduct:id,name,brand,sack_size', 'delivery', 'pautangInstallments'])
+            ->where('order_status', '!=', 'cancelled')
+            ->whereHas('delivery', fn (Builder $query) => $query->whereNotIn('status', ['delivered', 'cancelled']))
+            ->latest('order_date')
+            ->latest('id')
+            ->first();
+        $activePautang = $customer->orders()
+            ->with(['riceProduct:id,name,brand,sack_size', 'delivery', 'pautangInstallments'])
+            ->where('payment_type', 'pautang')
+            ->where('remaining_balance', '>', 0)
+            ->where('order_status', '!=', 'cancelled')
+            ->latest('id')
+            ->first();
+        $recentOrders = $customer->orders()
+            ->with(['riceProduct:id,name,brand,sack_size', 'delivery', 'pautangInstallments'])
+            ->latest('order_date')
+            ->latest('id')
+            ->limit(5)
+            ->get();
+
+        return [
+            'points' => [
+                'balance' => $pointsBalance,
+                'peso_equivalent' => number_format($pointsBalance * (float) $points->peso_per_point, 2, '.', ''),
+            ],
+            'active_order' => $activeOrder ? $this->customerOrderData($activeOrder) : null,
+            'active_pautang' => $activePautang ? $this->customerPautangData($activePautang) : null,
+            'recent_orders' => $recentOrders->map(fn (Order $order) => $this->customerOrderData($order))->values(),
+            'recent_payments' => $customer->gcashPayments()
+                ->with(['order:id,order_number', 'pautangInstallment:id,installment_number'])
+                ->latest('created_at')
+                ->limit(5)
+                ->get()
+                ->map(fn (GcashPayment $payment) => [
+                    'id' => $payment->id,
+                    'amount' => $payment->amount,
+                    'payment_date' => $payment->payment_date->toDateString(),
+                    'status' => $payment->status,
+                    'order' => ['id' => $payment->order->id, 'order_number' => $payment->order->order_number],
+                    'installment_number' => $payment->pautangInstallment?->installment_number,
+                ])
+                ->values(),
+            'recent_points_transactions' => $customer->pointsLedgers()
+                ->with('order:id,order_number')
+                ->latest('transaction_date')
+                ->latest('id')
+                ->limit(5)
+                ->get()
+                ->map(fn (PointsLedger $entry) => [
+                    'id' => $entry->id,
+                    'type' => $entry->type,
+                    'points' => $entry->points,
+                    'description' => $entry->description,
+                    'transaction_date' => $entry->transaction_date->toDateString(),
+                    'order' => $entry->order ? ['id' => $entry->order->id, 'order_number' => $entry->order->order_number] : null,
+                ])
+                ->values(),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function customerOrderData(Order $order): array
+    {
+        return [
+            'id' => $order->id,
+            'order_number' => $order->order_number,
+            'rice_product' => $order->riceProduct ? "{$order->riceProduct->name} ({$order->riceProduct->brand})" : 'Rice product unavailable',
+            'quantity' => $order->quantity,
+            'final_amount' => $order->final_amount,
+            'order_date' => $order->order_date->toDateString(),
+            'payment_type' => $order->payment_type,
+            'payment_status' => $this->customerPaymentStatus($order),
+            'delivery_status' => $order->delivery?->status,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function customerPautangData(Order $order): array
+    {
+        $unpaidInstallments = $order->pautangInstallments
+            ->filter(fn (PautangInstallment $installment) => (float) $installment->remaining_balance > 0)
+            ->sortBy('due_date')
+            ->values();
+        $nextInstallment = $unpaidInstallments->first();
+        $canSubmitPayment = $nextInstallment
+            && ! in_array($order->delivery?->status, ['pending', 'cancelled'], true);
+
+        return [
+            ...$this->customerOrderData($order),
+            'amount_paid' => $order->amount_paid,
+            'remaining_balance' => $order->remaining_balance,
+            'next_due_date' => $nextInstallment?->due_date?->toDateString(),
+            'payable_installment_id' => $nextInstallment?->id,
+            'can_submit_payment' => (bool) $canSubmitPayment,
+            'payment_ready_message' => $nextInstallment ? null : 'Your payment schedule will be available once this order is scheduled for delivery.',
+        ];
+    }
+
+    private function customerPaymentStatus(Order $order): string
+    {
+        if ($order->payment_type !== 'pautang' || ! $order->relationLoaded('pautangInstallments') || $order->pautangInstallments->isEmpty()) {
+            return $order->payment_status;
+        }
+
+        if ($order->pautangInstallments->every(fn (PautangInstallment $installment) => (float) $installment->remaining_balance <= 0)) {
+            return 'paid';
+        }
+
+        if ($order->pautangInstallments->contains(fn (PautangInstallment $installment) => $installment->currentStatus() === 'overdue')) {
+            return 'overdue';
+        }
+
+        return $order->pautangInstallments->contains(fn (PautangInstallment $installment) => (float) $installment->amount_paid > 0)
+            ? 'partially_paid'
+            : 'unpaid';
     }
 
     /** @return array<string, mixed> */

@@ -86,7 +86,11 @@ class OrderController extends Controller
                 'minimum_redemption' => $points->minimum_redemption,
                 'maximum_points_usable' => $points->maximum_points_usable,
             ],
-            'pautang' => ['enabled' => $system->pautang_enabled, 'maximum_sacks' => $system->pautang_max_sacks],
+            'pautang' => [
+                'enabled' => $system->pautang_enabled,
+                'maximum_sacks' => $system->pautang_max_sacks,
+                'has_unpaid_order' => $this->hasUnpaidPautang($customer->id),
+            ],
         ]);
     }
 
@@ -109,8 +113,9 @@ class OrderController extends Controller
                 if (! $system->pautang_enabled) throw ValidationException::withMessages(['payment_type' => 'Pautang is not currently available.']);
                 if ($pointsToUse > 0) throw ValidationException::withMessages(['points_to_use' => 'Points can only be redeemed on cash orders.']);
                 if ($quantity > $system->pautang_max_sacks) throw ValidationException::withMessages(['quantity' => "Pautang orders are limited to {$system->pautang_max_sacks} sack(s)."]);
-                $activePautang = Order::query()->where('customer_id', $customer->id)->where('payment_type', 'pautang')->where('remaining_balance', '>', 0)->where('order_status', '!=', 'cancelled')->count();
-                if ($activePautang >= $system->pautang_max_active) throw ValidationException::withMessages(['payment_type' => "You can only have {$system->pautang_max_active} active pautang order(s)."]);
+                if ($this->hasUnpaidPautang($customer->id)) {
+                    throw ValidationException::withMessages(['payment_type' => 'Complete your existing pautang balance before creating another pautang order.']);
+                }
             }
             $unitPrice = (float) $product->selling_price;
             $subtotal = round($unitPrice * $quantity, 2);

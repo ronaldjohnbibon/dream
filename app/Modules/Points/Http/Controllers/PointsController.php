@@ -67,7 +67,7 @@ class PointsController extends Controller
             );
         });
 
-        return to_route('customers.points.show', $customer)->with('success', 'Points adjustment recorded successfully.');
+        return to_route('customers.show', $customer)->with('success', 'Points adjustment recorded successfully.');
     }
 
     private function showPoints(User $customer, bool $canAdjust): Response

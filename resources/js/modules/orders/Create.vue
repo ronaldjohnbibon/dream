@@ -14,7 +14,7 @@ const props = defineProps<{
     areas: DeliveryArea[];
     customer: { complete_address: string | null; delivery_area: string | null };
     points: { enabled: boolean; balance: number; peso_per_point: string; minimum_redemption: number; maximum_points_usable: number };
-    pautang: { enabled: boolean; maximum_sacks: number };
+    pautang: { enabled: boolean; maximum_sacks: number; has_unpaid_order: boolean };
 }>();
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -93,7 +93,7 @@ const submit = () => {
             </Card>
 
             <form v-else class="space-y-6" @submit.prevent="submit">
-                <Card v-if="points.enabled">
+                <Card>
                     <CardHeader><CardTitle>Rice order</CardTitle></CardHeader>
                     <CardContent class="grid gap-5 sm:grid-cols-2">
                         <FormField id="rice-product" label="Rice product" :error="form.errors.rice_product_id" required>
@@ -145,11 +145,14 @@ const submit = () => {
                         <FormField id="payment-type" label="Payment type" :error="form.errors.payment_type" required>
                             <select id="payment-type" v-model="form.payment_type" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                                 <option value="cash">Cash</option>
-                                <option v-if="pautang.enabled" value="pautang">Pautang</option>
+                                <option v-if="pautang.enabled && !pautang.has_unpaid_order" value="pautang">Pautang</option>
                             </select>
                         </FormField>
+                        <p v-if="pautang.enabled && pautang.has_unpaid_order" class="self-end rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 sm:col-span-2">
+                            You have an unpaid pautang balance. Complete it before creating another pautang order; cash orders are still available.
+                        </p>
                         <p v-if="form.payment_type === 'pautang'" class="self-end rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                            Pautang is limited to {{ pautang.maximum_sacks }} sack(s) and the configured active-order limit.
+                            Pautang is limited to {{ pautang.maximum_sacks }} sack(s). You must complete it before creating another pautang order.
                         </p>
                         <FormField id="delivery-area" label="Delivery area" :error="form.errors.delivery_area_id" required>
                             <select id="delivery-area" v-model.number="form.delivery_area_id" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" required>

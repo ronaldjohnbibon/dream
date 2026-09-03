@@ -7,7 +7,6 @@ use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\PautangInstallment;
 use App\Modules\Points\Models\PointsLedger;
 use App\Modules\Settings\Models\PointsSetting;
-use App\Modules\Settings\Models\SystemSetting;
 use App\Modules\Users\Models\User;
 
 class PointsService
@@ -70,7 +69,7 @@ class PointsService
         if (! $this->settings()->is_enabled || $order->order_status === 'cancelled'
             || $payment->status !== 'approved'
             || (float) $installment->remaining_balance > 0
-            || $payment->payment_date->isAfter($installment->due_date->copy()->addDays(SystemSetting::current()->pautang_grace_period_days))) {
+            || $payment->payment_date->isAfter($installment->due_date)) {
             return null;
         }
 
