@@ -57,7 +57,6 @@ export interface CustomerOrderHistory {
     product_name: string;
     sack_size: string | null;
     quantity: number;
-    payment_type: 'cash' | 'pautang';
     payment_status: 'unpaid' | 'partially_paid' | 'paid' | 'overdue';
     order_status: 'pending' | 'confirmed' | 'preparing' | 'out_for_delivery' | 'delivered' | 'completed' | 'cancelled';
     final_amount: string;
@@ -70,7 +69,6 @@ export interface CustomerPaymentHistory {
     amount: string;
     status: 'pending_verification' | 'approved' | 'rejected';
     order: { id: number; order_number: string };
-    payment_type: 'cash' | 'pautang';
     installment_number: number | null;
 }
 

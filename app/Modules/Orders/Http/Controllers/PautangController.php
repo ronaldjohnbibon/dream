@@ -20,7 +20,6 @@ class PautangController extends Controller
             $pautang = Order::query()
                 ->with(['riceProduct:id,name,brand,sack_size', 'pautangInstallments'])
                 ->where('customer_id', $user->id)
-                ->where('payment_type', 'pautang')
                 ->where('order_status', '!=', 'cancelled')
                 ->whereHas('pautangInstallments', fn ($query) => $query->where('remaining_balance', '>', 0))
                 ->latest('id')
@@ -42,7 +41,6 @@ class PautangController extends Controller
 
         $orders = Order::query()
             ->with(['customer:id,name,email,mobile_number', 'pautangInstallments'])
-            ->where('payment_type', 'pautang')
             ->where('order_status', '!=', 'cancelled')
             ->whereHas('pautangInstallments')
             ->when($view === 'paid', fn ($query) => $query->whereDoesntHave('pautangInstallments', fn ($installments) => $installments->where('remaining_balance', '>', 0)))

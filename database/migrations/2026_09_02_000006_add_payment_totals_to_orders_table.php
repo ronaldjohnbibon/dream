@@ -16,15 +16,6 @@ return new class extends Migration
 
         DB::table('orders')->update(['remaining_balance' => DB::raw('final_amount')]);
 
-        $paidCashOrders = DB::table('orders')
-            ->where('payment_type', 'cash')
-            ->where('payment_status', 'paid');
-
-        $paidCashOrders->update([
-            'amount_paid' => DB::raw('final_amount'),
-            'remaining_balance' => 0,
-        ]);
-
         $pautangOrders = DB::table('pautang_installments')
             ->selectRaw('order_id, SUM(amount_paid) as amount_paid, SUM(remaining_balance) as remaining_balance')
             ->groupBy('order_id')

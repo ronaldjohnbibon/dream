@@ -69,7 +69,7 @@ class GcashPaymentController extends Controller
 
         return Inertia::render('modules/payments/Create', [
             'order' => $this->paymentOrderData($order),
-            'installment' => $installment ? $this->installmentData($installment) : null,
+            'installment' => $this->installmentData($installment),
             'gcash' => ['account_name' => $gcash->account_name, 'account_number' => $gcash->account_number, 'qr_code_url' => Storage::disk('public')->url($gcash->qr_code_path)],
         ]);
     }
@@ -82,7 +82,7 @@ class GcashPaymentController extends Controller
         try {
             $payment = DB::transaction(function () use ($request, $order, $attributes, &$screenshotPath): GcashPayment {
                 $lockedOrder = Order::query()->lockForUpdate()->findOrFail($order->id);
-                $installment = $this->installmentFromAttributes($attributes, $lockedOrder, true);
+                $installment = $this->installmentFromAttributes($attributes, $lockedOrder);
                 $this->ensureSubmittable($lockedOrder, $installment);
 
                 if (! GcashSetting::query()->find(1)?->isConfigured()) {
@@ -90,15 +90,7 @@ class GcashPaymentController extends Controller
                 }
 
                 $amount = round((float) $attributes['amount'], 2);
-                if ($lockedOrder->payment_type === 'cash') {
-                    if (GcashPayment::query()->where('order_id', $lockedOrder->id)->where('status', 'pending_verification')->exists()) {
-                        throw ValidationException::withMessages(['payment' => 'A payment for this order is already awaiting verification.']);
-                    }
-
-                    if ($amount !== round((float) $lockedOrder->remaining_balance, 2)) {
-                        throw ValidationException::withMessages(['amount' => 'Cash orders must be paid in one payment for the full remaining balance.']);
-                    }
-                } elseif ($amount > round((float) $installment->remaining_balance, 2)) {
+                if ($amount > round((float) $installment->remaining_balance, 2)) {
                     throw ValidationException::withMessages(['amount' => 'Payment cannot be greater than this installment\'s remaining balance.']);
                 }
 
@@ -106,7 +98,7 @@ class GcashPaymentController extends Controller
 
                 return GcashPayment::create([
                     'order_id' => $lockedOrder->id,
-                    'pautang_installment_id' => $installment?->id,
+                    'pautang_installment_id' => $installment->id,
                     'customer_id' => $request->user()->id,
                     'amount' => number_format($amount, 2, '.', ''),
                     'reference_number' => trim($attributes['reference_number']),
@@ -154,43 +146,33 @@ class GcashPaymentController extends Controller
                 $payment = GcashPayment::query()->lockForUpdate()->findOrFail($gcashPayment->id);
                 $this->ensurePending($payment);
                 $order = Order::query()->lockForUpdate()->findOrFail($payment->order_id);
-                $installment = $payment->pautang_installment_id
-                    ? PautangInstallment::query()->lockForUpdate()->findOrFail($payment->pautang_installment_id)
-                    : null;
+                $installment = PautangInstallment::query()->lockForUpdate()->findOrFail($payment->pautang_installment_id);
                 $this->ensureSubmittable($order, $installment);
 
                 $amount = round((float) $payment->amount, 2);
-                if ($order->payment_type === 'cash') {
-                    if ($amount !== round((float) $order->remaining_balance, 2)) {
-                        throw ValidationException::withMessages(['amount' => 'This payment no longer matches the order\'s remaining balance. Reject it and ask the customer to submit a new payment.']);
-                    }
-
-                    $this->updateOrderTotals($order, $amount, 0.0);
-                } else {
-                    if (! $installment || $installment->order_id !== $order->id || $amount > round((float) $installment->remaining_balance, 2)) {
-                        throw ValidationException::withMessages(['amount' => 'This payment is greater than the installment\'s current remaining balance. Reject it and ask the customer to submit a new payment.']);
-                    }
-
-                    $amountPaid = round((float) $installment->amount_paid + $amount, 2);
-                    $remaining = round(max(0, (float) $installment->amount_due - $amountPaid), 2);
-                    $installment->fill([
-                        'amount_paid' => number_format($amountPaid, 2, '.', ''),
-                        'remaining_balance' => number_format($remaining, 2, '.', ''),
-                        'paid_date' => $remaining === 0.0 ? today() : null,
-                    ]);
-                    $installment->status = $installment->currentStatus();
-                    $installment->save();
-
-                    $installments = $order->pautangInstallments()->lockForUpdate()->get();
-                    foreach ($installments as $scheduledInstallment) {
-                        $status = $scheduledInstallment->currentStatus();
-                        if ($scheduledInstallment->status !== $status) {
-                            $scheduledInstallment->update(['status' => $status]);
-                        }
-                    }
-
-                    $this->updatePautangOrderTotals($order, $installments);
+                if ($installment->order_id !== $order->id || $amount > round((float) $installment->remaining_balance, 2)) {
+                    throw ValidationException::withMessages(['amount' => 'This payment is greater than the installment\'s current remaining balance. Reject it and ask the customer to submit a new payment.']);
                 }
+
+                $amountPaid = round((float) $installment->amount_paid + $amount, 2);
+                $remaining = round(max(0, (float) $installment->amount_due - $amountPaid), 2);
+                $installment->fill([
+                    'amount_paid' => number_format($amountPaid, 2, '.', ''),
+                    'remaining_balance' => number_format($remaining, 2, '.', ''),
+                    'paid_date' => $remaining === 0.0 ? today() : null,
+                ]);
+                $installment->status = $installment->currentStatus();
+                $installment->save();
+
+                $installments = $order->pautangInstallments()->lockForUpdate()->get();
+                foreach ($installments as $scheduledInstallment) {
+                    $status = $scheduledInstallment->currentStatus();
+                    if ($scheduledInstallment->status !== $status) {
+                        $scheduledInstallment->update(['status' => $status]);
+                    }
+                }
+
+                $this->updatePautangOrderTotals($order, $installments);
 
                 $payment->update([
                     'status' => 'approved',
@@ -264,17 +246,9 @@ class GcashPaymentController extends Controller
         abort_unless(! $request->user()?->is_admin && $order->customer_id === $request->user()?->id, 403);
     }
 
-    private function requestedInstallment(Request $request, Order $order): ?PautangInstallment
+    private function requestedInstallment(Request $request, Order $order): PautangInstallment
     {
         $installmentId = $request->integer('installment');
-        if ($order->payment_type === 'cash') {
-            if ($installmentId) {
-                throw ValidationException::withMessages(['installment' => 'Cash orders do not have installments.']);
-            }
-
-            return null;
-        }
-
         $installment = $order->pautangInstallments->firstWhere('id', $installmentId);
         if (! $installment) {
             throw ValidationException::withMessages(['installment' => 'Choose an unpaid pautang installment.']);
@@ -284,33 +258,23 @@ class GcashPaymentController extends Controller
     }
 
     /** @param array<string, mixed> $attributes */
-    private function installmentFromAttributes(array $attributes, Order $order, bool $required): ?PautangInstallment
+    private function installmentFromAttributes(array $attributes, Order $order): PautangInstallment
     {
-        if ($order->payment_type === 'cash') {
-            if (! empty($attributes['pautang_installment_id'])) {
-                throw ValidationException::withMessages(['pautang_installment_id' => 'Cash orders do not have installments.']);
-            }
-
-            return null;
-        }
-
-        $installment = ! empty($attributes['pautang_installment_id'])
-            ? PautangInstallment::query()->lockForUpdate()->find($attributes['pautang_installment_id'])
-            : null;
-        if ($required && (! $installment || $installment->order_id !== $order->id)) {
+        $installment = PautangInstallment::query()->lockForUpdate()->find($attributes['pautang_installment_id']);
+        if (! $installment || $installment->order_id !== $order->id) {
             throw ValidationException::withMessages(['pautang_installment_id' => 'Choose a valid installment for this order.']);
         }
 
         return $installment;
     }
 
-    private function ensureSubmittable(Order $order, ?PautangInstallment $installment): void
+    private function ensureSubmittable(Order $order, PautangInstallment $installment): void
     {
         if ($order->order_status === 'pending' || $order->order_status === 'cancelled' || (float) $order->remaining_balance <= 0) {
             throw ValidationException::withMessages(['payment' => 'This order cannot receive a GCash payment.']);
         }
 
-        if ($order->payment_type === 'pautang' && (! $installment || (float) $installment->remaining_balance <= 0)) {
+        if ((float) $installment->remaining_balance <= 0) {
             throw ValidationException::withMessages(['pautang_installment_id' => 'This installment cannot receive a GCash payment.']);
         }
     }
@@ -320,15 +284,6 @@ class GcashPaymentController extends Controller
         if ($payment->status !== 'pending_verification') {
             throw ValidationException::withMessages(['payment' => 'Only pending payments can be reviewed.']);
         }
-    }
-
-    private function updateOrderTotals(Order $order, float $amountPaid, float $remainingBalance): void
-    {
-        $order->update([
-            'amount_paid' => number_format($amountPaid, 2, '.', ''),
-            'remaining_balance' => number_format($remainingBalance, 2, '.', ''),
-            'payment_status' => $remainingBalance <= 0 ? 'paid' : ($amountPaid > 0 ? 'partially_paid' : 'unpaid'),
-        ]);
     }
 
     /** @param Collection<int, PautangInstallment> $installments */
@@ -354,7 +309,6 @@ class GcashPaymentController extends Controller
         return [
             'id' => $order->id,
             'order_number' => $order->order_number,
-            'payment_type' => $order->payment_type,
             'remaining_balance' => $order->remaining_balance,
         ];
     }

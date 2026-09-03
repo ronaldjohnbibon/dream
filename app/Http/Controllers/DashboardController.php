@@ -45,7 +45,6 @@ class DashboardController extends Controller
             ->first();
         $activePautang = $customer->orders()
             ->with(['riceProduct:id,name,brand,sack_size', 'delivery', 'pautangInstallments'])
-            ->where('payment_type', 'pautang')
             ->where('remaining_balance', '>', 0)
             ->where('order_status', '!=', 'cancelled')
             ->latest('id')
@@ -107,7 +106,6 @@ class DashboardController extends Controller
             'quantity' => $order->quantity,
             'final_amount' => $order->final_amount,
             'order_date' => $order->order_date->toDateString(),
-            'payment_type' => $order->payment_type,
             'payment_status' => $this->customerPaymentStatus($order),
             'delivery_status' => $order->delivery?->status,
         ];
@@ -137,7 +135,7 @@ class DashboardController extends Controller
 
     private function customerPaymentStatus(Order $order): string
     {
-        if ($order->payment_type !== 'pautang' || ! $order->relationLoaded('pautangInstallments') || $order->pautangInstallments->isEmpty()) {
+        if (! $order->relationLoaded('pautangInstallments') || $order->pautangInstallments->isEmpty()) {
             return $order->payment_status;
         }
 
@@ -161,9 +159,7 @@ class DashboardController extends Controller
         $system = SystemSetting::current();
         $activeOrders = Order::query()->where('order_status', '!=', 'cancelled');
         $todayOrders = (clone $activeOrders)->whereDate('order_date', $today);
-        $activePautang = (clone $activeOrders)
-            ->where('payment_type', 'pautang')
-            ->where('remaining_balance', '>', 0);
+        $activePautang = (clone $activeOrders)->where('remaining_balance', '>', 0);
 
         return [
             'metrics' => [
@@ -187,7 +183,6 @@ class DashboardController extends Controller
             'charts' => [
                 'daily_sales' => $this->salesPeriod($today->copy()->subDays(6), $today, 'day'),
                 'monthly_sales' => $this->salesPeriod($today->copy()->startOfMonth()->subMonths(5), $today, 'month'),
-                'cash_vs_pautang' => $this->cashVsPautang($today->copy()->subDays(6), $today),
                 'collections' => $this->collections($today->copy()->subDays(6), $today),
                 'outstanding_balances' => $this->outstandingBalances(),
                 'best_selling_rice' => $this->bestSellingRice(),
@@ -232,35 +227,6 @@ class DashboardController extends Controller
         ], $points));
     }
 
-    /** @return list<array{label: string, cash: float, pautang: float, cash_percentage: float, pautang_percentage: float}> */
-    private function cashVsPautang(Carbon $start, Carbon $end): array
-    {
-        $orders = Order::query()->where('order_status', '!=', 'cancelled')
-            ->whereBetween('order_date', [$start->toDateString(), $end->toDateString()])
-            ->get(['order_date', 'payment_type', 'final_amount']);
-        $values = [];
-        foreach ($orders as $order) {
-            $key = $order->order_date->toDateString();
-            $values[$key][$order->payment_type] = ($values[$key][$order->payment_type] ?? 0.0) + (float) $order->final_amount;
-        }
-
-        $points = [];
-        $maximum = 0.0;
-        for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
-            $key = $date->toDateString();
-            $cash = round($values[$key]['cash'] ?? 0, 2);
-            $pautang = round($values[$key]['pautang'] ?? 0, 2);
-            $maximum = max($maximum, $cash + $pautang);
-            $points[] = ['label' => $date->format('M j'), 'cash' => $cash, 'pautang' => $pautang];
-        }
-
-        return array_map(fn (array $point) => [
-            ...$point,
-            'cash_percentage' => $this->percentage($point['cash'], $maximum),
-            'pautang_percentage' => $this->percentage($point['pautang'], $maximum),
-        ], $points);
-    }
-
     /** @return list<array{label: string, value: float, percentage: float}> */
     private function collections(Carbon $start, Carbon $end): array
     {
@@ -285,13 +251,12 @@ class DashboardController extends Controller
     /** @return list<array{label: string, value: float, percentage: float}> */
     private function outstandingBalances(): array
     {
-        $values = Order::query()->where('order_status', '!=', 'cancelled')->where('remaining_balance', '>', 0)
-            ->get(['payment_type', 'remaining_balance'])->groupBy('payment_type')
-            ->map(fn ($orders) => (float) $orders->sum('remaining_balance'));
+        $balance = (float) Order::query()->where('order_status', '!=', 'cancelled')
+            ->where('remaining_balance', '>', 0)
+            ->sum('remaining_balance');
 
         return $this->withPercentages([
-            ['label' => 'Cash', 'value' => round($values->get('cash', 0), 2)],
-            ['label' => 'Pautang', 'value' => round($values->get('pautang', 0), 2)],
+            ['label' => 'Pautang', 'value' => round($balance, 2)],
         ]);
     }
 
@@ -340,7 +305,7 @@ class DashboardController extends Controller
      */
     private function withPercentages(array $points): array
     {
-        $maximum = max(0, ...array_map(fn (array $point) => (float) $point['value'], $points));
+        $maximum = max([0, ...array_map(fn (array $point) => (float) $point['value'], $points)]);
 
         return array_map(fn (array $point) => [...$point, 'percentage' => $this->percentage((float) $point['value'], $maximum)], $points);
     }

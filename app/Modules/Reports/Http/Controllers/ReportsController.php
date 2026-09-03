@@ -31,7 +31,6 @@ class ReportsController extends Controller
             'date_from' => ['nullable', 'date', 'before_or_equal:date_to'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'customer_id' => ['nullable', 'integer', 'exists:users,id'],
-            'payment_type' => ['nullable', 'in:all,'.implode(',', Order::PAYMENT_TYPES)],
             'payment_status' => ['nullable', 'in:all,'.implode(',', Order::PAYMENT_STATUSES)],
             'order_status' => ['nullable', 'in:all,'.implode(',', Order::STATUSES)],
         ]);
@@ -40,7 +39,6 @@ class ReportsController extends Controller
             'date_from' => $validated['date_from'] ?? $today->copy()->startOfMonth()->toDateString(),
             'date_to' => $validated['date_to'] ?? $today->toDateString(),
             'customer_id' => $validated['customer_id'] ?? null,
-            'payment_type' => $validated['payment_type'] ?? 'all',
             'payment_status' => $validated['payment_status'] ?? 'all',
             'order_status' => $validated['order_status'] ?? 'all',
         ];
@@ -51,7 +49,7 @@ class ReportsController extends Controller
         $openOrders = $this->filteredOrders($filters, false)
             ->where('order_status', '!=', 'cancelled')
             ->where('remaining_balance', '>', 0);
-        $openPautang = (clone $openOrders)->where('payment_type', 'pautang');
+        $openPautang = clone $openOrders;
         $overdueInstallments = $this->openInstallments($filters)
             ->whereDate('due_date', '<', $asOf->copy()->subDays($system->pautang_grace_period_days)->toDateString());
         $approvedPayments = $this->approvedPayments($filters);
@@ -151,7 +149,7 @@ class ReportsController extends Controller
                 ->through(fn (Order $order) => $this->balanceRow($order)),
             'overdueCustomers' => $this->overdueCustomers($filters, $asOf, $system->pautang_grace_period_days),
             'payments' => (clone $approvedPayments)
-                ->with(['customer:id,name', 'order:id,order_number,payment_type', 'pautangInstallment:id,installment_number,due_date'])
+                ->with(['customer:id,name', 'order:id,order_number', 'pautangInstallment:id,installment_number,due_date'])
                 ->latest('payment_date')->latest('id')
                 ->paginate(self::PER_PAGE, ['*'], 'payments_page')
                 ->withQueryString()
@@ -224,7 +222,6 @@ class ReportsController extends Controller
         return $query
             ->when($includeDateRange, fn (Builder $query) => $query->whereBetween('order_date', [$filters['date_from'], $filters['date_to']]))
             ->when($filters['customer_id'], fn (Builder $query, int $customerId) => $query->where('customer_id', $customerId))
-            ->when($filters['payment_type'] !== 'all', fn (Builder $query) => $query->where('payment_type', $filters['payment_type']))
             ->when($filters['payment_status'] !== 'all', fn (Builder $query) => $query->where('payment_status', $filters['payment_status']))
             ->when($filters['order_status'] !== 'all', fn (Builder $query) => $query->where('order_status', $filters['order_status']));
     }
@@ -287,7 +284,6 @@ class ReportsController extends Controller
 
         $unscheduledPautang = $this->filteredOrders($filters, false)
             ->where('order_status', '!=', 'cancelled')
-            ->where('payment_type', 'pautang')
             ->where('remaining_balance', '>', 0)
             ->whereDoesntHave('pautangInstallments')
             ->sum('remaining_balance');
@@ -309,7 +305,6 @@ class ReportsController extends Controller
             ->whereDate('pautang_installments.due_date', '<', $asOf->copy()->subDays($gracePeriodDays)->toDateString())
             ->where('orders.order_status', '!=', 'cancelled')
             ->when($filters['customer_id'], fn ($query, int $customerId) => $query->where('orders.customer_id', $customerId))
-            ->when($filters['payment_type'] !== 'all', fn ($query) => $query->where('orders.payment_type', $filters['payment_type']))
             ->when($filters['payment_status'] !== 'all', fn ($query) => $query->where('orders.payment_status', $filters['payment_status']))
             ->when($filters['order_status'] !== 'all', fn ($query) => $query->where('orders.order_status', $filters['order_status']))
             ->selectRaw('users.id, users.name, SUM(pautang_installments.remaining_balance) as remaining_balance, MIN(pautang_installments.due_date) as oldest_due_date')
@@ -341,7 +336,6 @@ class ReportsController extends Controller
             'product_name' => $order->riceProduct ? trim($order->riceProduct->name.' '.$order->riceProduct->brand) : 'Deleted product',
             'order_date' => $order->order_date->toDateString(),
             'final_amount' => $this->money($order->final_amount),
-            'payment_type' => $order->payment_type,
             'payment_status' => $order->payment_status,
             'order_status' => $order->order_status,
         ];
@@ -371,7 +365,6 @@ class ReportsController extends Controller
             'id' => $order->id,
             'order_number' => $order->order_number,
             'customer_name' => $order->customer?->name ?? 'Deleted customer',
-            'payment_type' => $order->payment_type,
             'order_date' => $order->order_date->toDateString(),
             'remaining_balance' => $this->money($order->remaining_balance),
         ];
@@ -384,7 +377,6 @@ class ReportsController extends Controller
             'id' => $payment->id,
             'customer_name' => $payment->customer?->name ?? 'Deleted customer',
             'order_number' => $payment->order?->order_number ?? 'Deleted order',
-            'payment_type' => $payment->order?->payment_type,
             'installment_number' => $payment->pautangInstallment?->installment_number,
             'amount' => $this->money($payment->amount),
             'payment_date' => $payment->payment_date->toDateString(),

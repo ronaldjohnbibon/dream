@@ -39,12 +39,10 @@ class OrderController extends Controller
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
             'delivery_status' => ['nullable', 'in:all,'.implode(',', Delivery::STATUSES)],
-            'payment_type' => ['nullable', 'in:all,'.implode(',', Order::PAYMENT_TYPES)],
             'payment_status' => ['nullable', 'in:all,'.implode(',', Order::PAYMENT_STATUSES)],
         ]);
         $search = $filters['search'] ?? '';
         $deliveryStatus = $filters['delivery_status'] ?? 'all';
-        $paymentType = $filters['payment_type'] ?? 'all';
         $paymentStatus = $filters['payment_status'] ?? 'all';
         $user = $request->user();
 
@@ -55,14 +53,13 @@ class OrderController extends Controller
                 ->orWhereHas('customer', fn ($customer) => $customer->where('name', 'like', "%{$search}%"))
                 ->orWhereHas('riceProduct', fn ($product) => $product->where('name', 'like', "%{$search}%")->orWhere('brand', 'like', "%{$search}%"))))
             ->when($deliveryStatus !== 'all', fn ($query) => $query->whereHas('delivery', fn ($delivery) => $delivery->where('status', $deliveryStatus)))
-            ->when($paymentType !== 'all', fn ($query) => $query->where('payment_type', $paymentType))
             ->when($paymentStatus !== 'all', fn ($query) => $query->where('payment_status', $paymentStatus))
             ->latest('order_date')->latest('id')->paginate(15)->withQueryString()
             ->through(fn (Order $order) => $this->orderData($order));
 
         return Inertia::render('modules/orders/Index', [
             'orders' => $orders,
-            'filters' => ['search' => $search, 'delivery_status' => $deliveryStatus, 'payment_type' => $paymentType, 'payment_status' => $paymentStatus],
+            'filters' => ['search' => $search, 'delivery_status' => $deliveryStatus, 'payment_status' => $paymentStatus],
             'canManage' => $user->is_admin,
         ]);
     }
@@ -108,14 +105,11 @@ class OrderController extends Controller
             $quantity = $attributes['quantity'];
             $pointsToUse = (int) ($attributes['points_to_use'] ?? 0);
             if (! $product->is_active || $product->available_stock < $quantity) throw ValidationException::withMessages(['quantity' => 'There is not enough stock available for this order.']);
-            if ($attributes['payment_type'] === 'pautang') {
-                $system = SystemSetting::current();
-                if (! $system->pautang_enabled) throw ValidationException::withMessages(['payment_type' => 'Pautang is not currently available.']);
-                if ($pointsToUse > 0) throw ValidationException::withMessages(['points_to_use' => 'Points can only be redeemed on cash orders.']);
-                if ($quantity > $system->pautang_max_sacks) throw ValidationException::withMessages(['quantity' => "Pautang orders are limited to {$system->pautang_max_sacks} sack(s)."]);
-                if ($this->hasUnpaidPautang($customer->id)) {
-                    throw ValidationException::withMessages(['payment_type' => 'Complete your existing pautang balance before creating another pautang order.']);
-                }
+            $system = SystemSetting::current();
+            if (! $system->pautang_enabled) throw ValidationException::withMessages(['order' => 'Pautang is not currently available.']);
+            if ($quantity > $system->pautang_max_sacks) throw ValidationException::withMessages(['quantity' => "Pautang orders are limited to {$system->pautang_max_sacks} sack(s)."]);
+            if ($this->hasUnpaidPautang($customer->id)) {
+                throw ValidationException::withMessages(['order' => 'Complete your existing pautang balance before creating another order.']);
             }
             $unitPrice = (float) $product->selling_price;
             $subtotal = round($unitPrice * $quantity, 2);
@@ -126,7 +120,7 @@ class OrderController extends Controller
             $order = Order::create([
                 'customer_id' => $customer->id, 'rice_product_id' => $product->id, 'quantity' => $quantity, 'unit_price' => number_format($unitPrice, 2, '.', ''), 'subtotal' => number_format($subtotal, 2, '.', ''),
                 'points_used' => $pointsToUse, 'points_discount' => number_format($pointsDiscount, 2, '.', ''), 'delivery_fee' => number_format($fee, 2, '.', ''), 'final_amount' => number_format($finalAmount, 2, '.', ''), 'amount_paid' => '0.00', 'remaining_balance' => number_format($finalAmount, 2, '.', ''),
-                'payment_type' => $attributes['payment_type'], 'delivery_address' => $attributes['delivery_address'], 'delivery_area' => $area->name, 'order_date' => today(), 'order_status' => 'pending', 'payment_status' => $finalAmount <= 0 ? 'paid' : 'unpaid', 'notes' => $attributes['notes'] ?? null,
+                'payment_type' => Order::PAYMENT_TYPE, 'delivery_address' => $attributes['delivery_address'], 'delivery_area' => $area->name, 'order_date' => today(), 'order_status' => 'pending', 'payment_status' => $finalAmount <= 0 ? 'paid' : 'unpaid', 'notes' => $attributes['notes'] ?? null,
             ]);
             $order->update(['order_number' => 'ORD-'.str_pad((string) $order->id, 6, '0', STR_PAD_LEFT)]);
             $order->delivery()->create(['customer_id' => $customer->id, 'delivery_area_id' => $area->id, 'delivery_area_name' => $area->name, 'delivery_address' => $attributes['delivery_address'], 'delivery_fee' => number_format($fee, 2, '.', ''), 'status' => 'pending', 'notes' => $attributes['notes'] ?? null]);
@@ -174,6 +168,15 @@ class OrderController extends Controller
         return round($points * $rate, 2);
     }
 
+    private function hasUnpaidPautang(int $customerId): bool
+    {
+        return Order::query()
+            ->where('customer_id', $customerId)
+            ->where('order_status', '!=', 'cancelled')
+            ->where('remaining_balance', '>', 0)
+            ->exists();
+    }
+
     /** @param Collection<int, PautangInstallment> $installments */
     private function pautangPaymentStatus($installments): string
     {
@@ -190,9 +193,9 @@ class OrderController extends Controller
             'id' => $order->id, 'order_number' => $order->order_number,
             'customer' => ['id' => $order->customer->id, 'name' => $order->customer->name, 'email' => $order->customer->email, 'mobile_number' => $order->customer->mobile_number],
             'rice_product' => ['id' => $order->riceProduct->id, 'name' => $order->riceProduct->name, 'brand' => $order->riceProduct->brand, 'sack_size' => $order->riceProduct->sack_size],
-            'quantity' => $order->quantity, 'unit_price' => $order->unit_price, 'subtotal' => $order->subtotal, 'points_used' => $order->points_used, 'points_discount' => $order->points_discount, 'delivery_fee' => $order->delivery_fee, 'final_amount' => $order->final_amount, 'amount_paid' => $order->amount_paid, 'remaining_balance' => $order->remaining_balance, 'payment_type' => $order->payment_type,
+            'quantity' => $order->quantity, 'unit_price' => $order->unit_price, 'subtotal' => $order->subtotal, 'points_used' => $order->points_used, 'points_discount' => $order->points_discount, 'delivery_fee' => $order->delivery_fee, 'final_amount' => $order->final_amount, 'amount_paid' => $order->amount_paid, 'remaining_balance' => $order->remaining_balance,
             'delivery_address' => $order->delivery_address, 'delivery_area' => $order->delivery_area, 'order_date' => $order->order_date->toDateString(),
-            'payment_status' => $order->relationLoaded('pautangInstallments') && $order->payment_type === 'pautang' && $order->pautangInstallments->isNotEmpty() ? $this->pautangPaymentStatus($order->pautangInstallments) : $order->payment_status,
+            'payment_status' => $order->relationLoaded('pautangInstallments') && $order->pautangInstallments->isNotEmpty() ? $this->pautangPaymentStatus($order->pautangInstallments) : $order->payment_status,
             'delivery' => $order->delivery ? ['id' => $order->delivery->id, 'delivery_area_id' => $order->delivery->delivery_area_id, 'delivery_area_name' => $order->delivery->delivery_area_name, 'delivery_address' => $order->delivery->delivery_address, 'delivery_fee' => $order->delivery->delivery_fee, 'delivery_date' => $order->delivery->delivery_date?->toDateString(), 'delivery_person' => $order->delivery->delivery_person, 'status' => $order->delivery->status, 'notes' => $order->delivery->notes, 'delivered_date' => $order->delivery->delivered_date?->toDateString()] : null,
             'pautang_installments' => $order->relationLoaded('pautangInstallments') ? $order->pautangInstallments->map(fn (PautangInstallment $item) => ['id' => $item->id, 'installment_number' => $item->installment_number, 'amount_due' => $item->amount_due, 'due_date' => $item->due_date->toDateString(), 'amount_paid' => $item->amount_paid, 'remaining_balance' => $item->remaining_balance, 'status' => $item->currentStatus(), 'paid_date' => $item->paid_date?->toDateString()])->values() : [],
             'gcash_payments' => $order->relationLoaded('gcashPayments') ? $order->gcashPayments->map(fn (GcashPayment $payment) => ['id' => $payment->id, 'amount' => $payment->amount, 'reference_number' => $payment->reference_number, 'payment_date' => $payment->payment_date->toDateString(), 'status' => $payment->status, 'remarks' => $payment->remarks, 'reviewed_at' => $payment->reviewed_at?->toISOString(), 'screenshot_url' => route('gcash-payments.screenshot', $payment), 'installment_number' => $payment->pautangInstallment?->installment_number, 'reviewer_name' => $payment->reviewer?->name])->values() : [],

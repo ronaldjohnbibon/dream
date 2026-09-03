@@ -10,13 +10,11 @@ type MetricFormat = 'currency' | 'number';
 
 interface DashboardMetric { label: string; value: number; format: MetricFormat; description: string; }
 interface ChartPoint { label: string; value: number; percentage: number; }
-interface CashPautangPoint { label: string; cash: number; pautang: number; cash_percentage: number; pautang_percentage: number; }
 interface AdminDashboardData {
     metrics: DashboardMetric[];
     charts: {
         daily_sales: ChartPoint[];
         monthly_sales: ChartPoint[];
-        cash_vs_pautang: CashPautangPoint[];
         collections: ChartPoint[];
         outstanding_balances: ChartPoint[];
         best_selling_rice: ChartPoint[];
@@ -29,7 +27,7 @@ type DeliveryStatus = 'pending' | 'scheduled' | 'preparing' | 'out_for_delivery'
 type GcashPaymentStatus = 'pending_verification' | 'approved' | 'rejected';
 interface CustomerOrderSummary {
     id: number; order_number: string; rice_product: string; quantity: number; final_amount: string;
-    order_date: string; payment_type: 'cash' | 'pautang'; payment_status: PaymentStatus; delivery_status: DeliveryStatus | null;
+    order_date: string; payment_status: PaymentStatus; delivery_status: DeliveryStatus | null;
 }
 interface CustomerPautangSummary extends CustomerOrderSummary {
     amount_paid: string; remaining_balance: string; next_due_date: string | null;
@@ -111,7 +109,7 @@ const pointsTypeLabel = (type: string) => ({ order_reward: 'Order reward', on_ti
                 <Card v-if="customerDashboard.active_pautang" class="border-amber-300 bg-amber-50/60 dark:bg-amber-950/20">
                     <CardHeader>
                         <CardTitle>Complete your pautang before ordering another on credit</CardTitle>
-                        <CardDescription>You can still place cash orders. Fully pay your existing pautang balance before creating another pautang order.</CardDescription>
+                        <CardDescription>Fully pay your existing pautang balance before creating another order.</CardDescription>
                     </CardHeader>
                 </Card>
 
@@ -191,23 +189,6 @@ const pointsTypeLabel = (type: string) => ({ order_reward: 'Order reward', on_ti
                     </Card>
 
                     <Card>
-                        <CardHeader><CardTitle>Cash vs Pautang</CardTitle><CardDescription>Booked sales over the last 7 days</CardDescription></CardHeader>
-                        <CardContent>
-                            <div v-if="adminDashboard.charts.cash_vs_pautang.some((point) => point.cash + point.pautang > 0)" class="flex h-56 items-end gap-2" aria-label="Cash versus pautang sales chart">
-                                <div v-for="point in adminDashboard.charts.cash_vs_pautang" :key="point.label" class="flex h-full min-w-0 flex-1 flex-col justify-end gap-2 text-center">
-                                    <div class="flex h-full flex-col justify-end overflow-hidden rounded-t" :title="`${point.label}: Cash ${formatCurrency(point.cash)}, Pautang ${formatCurrency(point.pautang)}`">
-                                        <div class="bg-amber-500" :style="{ height: `${point.pautang_percentage}%` }"></div>
-                                        <div class="bg-emerald-600" :style="{ height: `${point.cash_percentage}%` }"></div>
-                                    </div>
-                                    <span class="truncate text-xs text-muted-foreground">{{ point.label }}</span>
-                                </div>
-                            </div>
-                            <p v-else class="py-20 text-center text-sm text-muted-foreground">No sales in this period.</p>
-                            <div class="mt-3 flex gap-4 text-xs text-muted-foreground"><span><i class="mr-1 inline-block size-2 rounded-sm bg-emerald-600"></i>Cash</span><span><i class="mr-1 inline-block size-2 rounded-sm bg-amber-500"></i>Pautang</span></div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
                         <CardHeader><CardTitle>Collections</CardTitle><CardDescription>Approved GCash payments over the last 7 days</CardDescription></CardHeader>
                         <CardContent>
                             <div v-if="adminDashboard.charts.collections.some((point) => point.value > 0)" class="flex h-56 items-end gap-2" aria-label="Collections chart">
@@ -222,7 +203,7 @@ const pointsTypeLabel = (type: string) => ({ order_reward: 'Order reward', on_ti
                     </Card>
 
                     <Card>
-                        <CardHeader><CardTitle>Outstanding balances</CardTitle><CardDescription>Unpaid balances by payment type</CardDescription></CardHeader>
+                        <CardHeader><CardTitle>Outstanding balances</CardTitle><CardDescription>Unpaid pautang balances</CardDescription></CardHeader>
                         <CardContent class="space-y-5">
                             <div v-for="point in adminDashboard.charts.outstanding_balances" :key="point.label">
                                 <div class="mb-2 flex justify-between gap-3 text-sm"><span>{{ point.label }}</span><span class="font-medium">{{ formatCurrency(point.value) }}</span></div>

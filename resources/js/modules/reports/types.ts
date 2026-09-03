@@ -4,7 +4,6 @@ export interface ReportFilters {
     date_from: string;
     date_to: string;
     customer_id: number | null;
-    payment_type: 'all' | 'cash' | 'pautang';
     payment_status: 'all' | 'unpaid' | 'partially_paid' | 'paid' | 'overdue';
     order_status: 'all' | 'pending' | 'confirmed' | 'preparing' | 'out_for_delivery' | 'delivered' | 'completed' | 'cancelled';
 }
@@ -24,7 +23,6 @@ export interface ReportOrderRow {
     product_name: string;
     order_date: string;
     final_amount: string;
-    payment_type: string;
     payment_status: string;
     order_status: string;
 }
@@ -43,7 +41,6 @@ export interface BalanceReportRow {
     id: number;
     order_number: string;
     customer_name: string;
-    payment_type: string;
     order_date: string;
     remaining_balance: string;
 }
@@ -60,7 +57,6 @@ export interface PaymentReportRow {
     id: number;
     customer_name: string;
     order_number: string;
-    payment_type: string | null;
     installment_number: number | null;
     amount: string;
     payment_date: string;

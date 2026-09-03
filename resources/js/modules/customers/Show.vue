@@ -58,7 +58,7 @@ const statusClass = computed(
         })[props.customer.account_status as CustomerStatus],
 );
 
-const paymentTypeLabel = (type: CustomerOrderHistory['payment_type']) => (type === 'pautang' ? 'Pautang' : 'Cash');
+const paymentTypeLabel = () => 'Pautang';
 const paymentStatusLabel = (status: CustomerOrderHistory['payment_status']) =>
     ({ unpaid: 'Unpaid', partially_paid: 'Partially Paid', paid: 'Paid', overdue: 'Overdue' })[status];
 const orderStatusLabel = (status: CustomerOrderHistory['order_status']) =>
@@ -287,7 +287,7 @@ const submitAdjustment = () => {
                                     <p v-if="order.sack_size" class="text-xs text-muted-foreground">{{ order.quantity }} × {{ order.sack_size }}</p>
                                 </td>
                                 <td class="px-4 py-3">
-                                    <p>{{ paymentTypeLabel(order.payment_type) }}</p>
+                                    <p>{{ paymentTypeLabel() }}</p>
                                     <span
                                         class="mt-1 inline-flex rounded-full px-2 py-0.5 text-xs"
                                         :class="paymentStatusClass(order.payment_status)"
@@ -334,7 +334,7 @@ const submitAdjustment = () => {
                                         payment.order.order_number
                                     }}</Link>
                                 </td>
-                                <td class="px-4 py-3">{{ paymentTypeLabel(payment.payment_type) }}</td>
+                                <td class="px-4 py-3">{{ paymentTypeLabel() }}</td>
                                 <td class="px-4 py-3">{{ payment.installment_number ? `Give ${payment.installment_number}` : '—' }}</td>
                                 <td class="px-4 py-3 text-right font-medium">{{ currency.format(Number(payment.amount)) }}</td>
                                 <td class="px-4 py-3">

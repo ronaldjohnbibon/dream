@@ -94,7 +94,7 @@ class CustomerController extends Controller
                 ->withQueryString()
                 ->through(fn (Order $order) => $this->orderHistoryData($order, $gracePeriodDays)),
             'payments' => $customer->gcashPayments()
-                ->with(['order:id,order_number,payment_type', 'pautangInstallment:id,installment_number'])
+                ->with(['order:id,order_number', 'pautangInstallment:id,installment_number'])
                 ->latest('payment_date')
                 ->latest('id')
                 ->paginate(10, ['*'], 'payments_page')
@@ -199,7 +199,6 @@ class CustomerController extends Controller
     private function summaryData(User $customer, int $gracePeriodDays): array
     {
         $pautangOrders = $customer->orders()
-            ->where('payment_type', 'pautang')
             ->where('order_status', '!=', 'cancelled');
         $activePautang = (clone $pautangOrders)
             ->where('remaining_balance', '>', 0);
@@ -253,7 +252,6 @@ class CustomerController extends Controller
             'product_name' => $order->riceProduct ? "{$order->riceProduct->name} {$order->riceProduct->brand}" : 'Deleted product',
             'sack_size' => $order->riceProduct?->sack_size,
             'quantity' => $order->quantity,
-            'payment_type' => $order->payment_type,
             'payment_status' => $this->orderPaymentStatus($order, $gracePeriodDays),
             'order_status' => $order->order_status,
             'final_amount' => $order->final_amount,
@@ -270,7 +268,6 @@ class CustomerController extends Controller
             'amount' => $payment->amount,
             'status' => $payment->status,
             'order' => ['id' => $payment->order->id, 'order_number' => $payment->order->order_number],
-            'payment_type' => $payment->order->payment_type,
             'installment_number' => $payment->pautangInstallment?->installment_number,
         ];
     }
@@ -291,7 +288,7 @@ class CustomerController extends Controller
 
     private function orderPaymentStatus(Order $order, int $gracePeriodDays): string
     {
-        if ($order->payment_type !== 'pautang' || $order->pautangInstallments->isEmpty()) {
+        if ($order->pautangInstallments->isEmpty()) {
             return $order->payment_status;
         }
 

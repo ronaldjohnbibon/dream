@@ -50,7 +50,7 @@ class DeliveryService
 
             if ($isCancelled) {
                 $hasPayments = $order->gcashPayments()->exists()
-                    || ($order->payment_type === 'pautang' && $order->pautangInstallments()->where('amount_paid', '>', 0)->exists());
+                    || $order->pautangInstallments()->where('amount_paid', '>', 0)->exists();
                 if ($hasPayments) {
                     throw ValidationException::withMessages(['status' => 'A delivery with payment submissions cannot be cancelled.']);
                 }
@@ -72,7 +72,7 @@ class DeliveryService
                 ]);
             }
 
-            if ($isScheduled && $order->payment_type === 'pautang' && $order->pautangInstallments()->doesntExist()) {
+            if ($isScheduled && $order->pautangInstallments()->doesntExist()) {
                 $this->createPautangInstallments($order);
             }
 

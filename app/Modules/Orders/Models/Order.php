@@ -17,7 +17,7 @@ class Order extends Model
 {
     use HasFactory;
 
-    public const PAYMENT_TYPES = ['cash', 'pautang'];
+    public const PAYMENT_TYPE = 'pautang';
 
     public const STATUSES = [
         'pending',

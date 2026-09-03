@@ -24,7 +24,6 @@ const breadcrumbs: BreadcrumbItem[] = [
 const form = useForm({
     rice_product_id: null as number | null,
     quantity: 1,
-    payment_type: 'cash' as 'cash' | 'pautang',
     points_to_use: 0,
     delivery_address: props.customer.complete_address ?? '',
     delivery_area_id: props.areas.find((area) => area.name === props.customer.delivery_area)?.id ?? null as number | null,
@@ -37,7 +36,7 @@ const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: '
 const pesoPerPoint = computed(() => Number(props.points.peso_per_point));
 const pesoEquivalent = computed(() => props.points.balance * pesoPerPoint.value);
 const maximumPointsToUse = computed(() => {
-    if (! props.points.enabled || form.payment_type !== 'cash' || pesoPerPoint.value <= 0 || subtotal.value <= 0) {
+    if (! props.points.enabled || pesoPerPoint.value <= 0 || subtotal.value <= 0) {
         return 0;
     }
 
@@ -48,17 +47,15 @@ const pointsDiscount = computed(() => Number((pointsToUse.value * pesoPerPoint.v
 const deliveryFee = computed(() => Number(selectedArea.value?.delivery_fee ?? 0));
 const finalAmount = computed(() => Math.max(0, Number((subtotal.value - pointsDiscount.value + deliveryFee.value).toFixed(2))));
 const finalAmountWithMaximumPoints = computed(() => Math.max(0, Number((subtotal.value - (maximumPointsToUse.value * pesoPerPoint.value)).toFixed(2))));
-const maximumQuantity = computed(() => Math.min(selectedProduct.value?.available_stock ?? 0, form.payment_type === 'pautang' ? props.pautang.maximum_sacks : Number.MAX_SAFE_INTEGER));
+const maximumQuantity = computed(() => Math.min(selectedProduct.value?.available_stock ?? 0, props.pautang.maximum_sacks));
 const canPayFullyWithPoints = computed(() => selectedProduct.value !== null
     && form.quantity === 1
     && maximumPointsToUse.value > 0
     && finalAmountWithMaximumPoints.value === 0);
 
-watch([() => form.payment_type, maximumPointsToUse], () => {
-    if (form.payment_type === 'pautang') {
-        form.points_to_use = 0;
-        if (form.quantity > props.pautang.maximum_sacks) form.quantity = props.pautang.maximum_sacks;
-    } else if (form.points_to_use > maximumPointsToUse.value) {
+watch(maximumPointsToUse, () => {
+    if (form.quantity > props.pautang.maximum_sacks) form.quantity = props.pautang.maximum_sacks;
+    if (form.points_to_use > maximumPointsToUse.value) {
         form.points_to_use = maximumPointsToUse.value;
     }
 });
@@ -81,7 +78,7 @@ const submit = () => {
         <div class="mx-auto w-full max-w-3xl space-y-6 p-4 md:p-6">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight">Place an order</h1>
-                <p class="mt-1 text-sm text-muted-foreground">Choose rice, delivery details, and your payment type.</p>
+                <p class="mt-1 text-sm text-muted-foreground">Choose rice and delivery details for your pautang order.</p>
             </div>
 
             <Card v-if="products.length === 0">
@@ -117,7 +114,7 @@ const submit = () => {
                 <Card>
                     <CardHeader>
                         <CardTitle>Redeem points</CardTitle>
-                        <CardDescription>Points can be used on Cash orders and are converted using the current rate.</CardDescription>
+                        <CardDescription>Points can be used on pautang orders and are converted using the current rate.</CardDescription>
                     </CardHeader>
                     <CardContent class="space-y-5">
                         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -128,32 +125,24 @@ const submit = () => {
                         </div>
                         <div class="grid gap-4 sm:grid-cols-[minmax(0,240px)_1fr] sm:items-end">
                             <FormField id="points-to-use" label="Points to use" :error="form.errors.points_to_use">
-                                <Input id="points-to-use" v-model.number="form.points_to_use" type="number" min="0" :max="maximumPointsToUse" step="1" :disabled="form.payment_type === 'pautang' || maximumPointsToUse === 0" />
+                                <Input id="points-to-use" v-model.number="form.points_to_use" type="number" min="0" :max="maximumPointsToUse" step="1" :disabled="maximumPointsToUse === 0" />
                             </FormField>
                             <div class="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                                 <span>Use at least {{ points.minimum_redemption }} and up to {{ maximumPointsToUse }} points on this order.</span>
                                 <Button v-if="canPayFullyWithPoints" type="button" size="sm" variant="outline" @click="payFullyUsingPoints">Pay Fully Using Points</Button>
                             </div>
                         </div>
-                        <p v-if="form.payment_type === 'pautang'" class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">Points redemption is available for Cash orders only.</p>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader><CardTitle>Payment and delivery</CardTitle></CardHeader>
                     <CardContent class="grid gap-5 sm:grid-cols-2">
-                        <FormField id="payment-type" label="Payment type" :error="form.errors.payment_type" required>
-                            <select id="payment-type" v-model="form.payment_type" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                                <option value="cash">Cash</option>
-                                <option v-if="pautang.enabled && !pautang.has_unpaid_order" value="pautang">Pautang</option>
-                            </select>
-                        </FormField>
+                        <div class="rounded-md border bg-muted/30 p-4 text-sm sm:col-span-2"><p class="font-medium">Payment type: Pautang</p><p class="mt-1 text-muted-foreground">Pautang is limited to {{ pautang.maximum_sacks }} sack(s) and is paid through scheduled installments.</p></div>
                         <p v-if="pautang.enabled && pautang.has_unpaid_order" class="self-end rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 sm:col-span-2">
-                            You have an unpaid pautang balance. Complete it before creating another pautang order; cash orders are still available.
+                            You have an unpaid pautang balance. Complete it before creating another order.
                         </p>
-                        <p v-if="form.payment_type === 'pautang'" class="self-end rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                            Pautang is limited to {{ pautang.maximum_sacks }} sack(s). You must complete it before creating another pautang order.
-                        </p>
+                        <p v-if="!pautang.enabled" class="self-end rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 sm:col-span-2">Pautang is not currently available.</p>
                         <FormField id="delivery-area" label="Delivery area" :error="form.errors.delivery_area_id" required>
                             <select id="delivery-area" v-model.number="form.delivery_area_id" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" required>
                                 <option :value="null" disabled>Select delivery area</option>
@@ -170,7 +159,7 @@ const submit = () => {
                     </CardContent>
                 </Card>
 
-                <div class="flex justify-end gap-2"><Button type="button" variant="outline" as-child><Link :href="route('orders.index')">Cancel</Link></Button><Button type="submit" :disabled="form.processing">Place order</Button></div>
+                <div class="flex justify-end gap-2"><Button type="button" variant="outline" as-child><Link :href="route('orders.index')">Cancel</Link></Button><Button type="submit" :disabled="form.processing || !pautang.enabled || pautang.has_unpaid_order">Place order</Button></div>
             </form>
         </div>
     </AppLayout>
