@@ -4,7 +4,7 @@ import NavUser from '@/components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import type { NavItem, SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { Award, Bell, CreditCard, HandCoins, LayoutGrid, MapPin, PackageSearch, ShoppingCart, Truck, Users } from 'lucide-vue-next';
+import { Award, Bell, ChartNoAxesCombined, CreditCard, HandCoins, LayoutGrid, MapPin, PackageSearch, ShoppingCart, Truck, Users } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';
 
@@ -22,6 +22,7 @@ const mainNavItems = computed<NavItem[]>(() => {
         items.push({ title: 'Delivery areas', href: route('delivery-areas.index'), icon: MapPin });
         items.push({ title: 'Payments', href: route('gcash-payments.index'), icon: CreditCard });
         items.push({ title: 'Pautang', href: route('pautang.index'), icon: HandCoins });
+        items.push({ title: 'Reports', href: route('reports.index'), icon: ChartNoAxesCombined });
         items.push({ title: 'Notifications', href: route('notifications.index'), icon: Bell });
     } else {
         items.push({ title: 'My orders', href: route('orders.index'), icon: ShoppingCart });

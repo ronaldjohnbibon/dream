@@ -10,6 +10,7 @@ use App\Modules\Orders\Http\Controllers\GcashPaymentController;
 use App\Modules\Orders\Http\Controllers\OrderController;
 use App\Modules\Orders\Http\Controllers\PautangController;
 use App\Modules\Points\Http\Controllers\PointsController;
+use App\Modules\Reports\Http\Controllers\ReportsController;
 use App\Modules\Users\Http\Controllers\CustomerController;
 use App\Modules\Users\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -54,6 +55,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('gcash-payments/{gcashPayment}/reject', [GcashPaymentController::class, 'reject'])->name('gcash-payments.reject');
 
     Route::get('pautang', [PautangController::class, 'index'])->name('pautang.index');
+    Route::get('reports', [ReportsController::class, 'index'])->name('reports.index');
     Route::get('points', [PointsController::class, 'mine'])->name('points.show');
 
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
