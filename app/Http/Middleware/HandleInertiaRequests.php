@@ -58,7 +58,7 @@ class HandleInertiaRequests extends Middleware
 
         return [
             'name'     => $settings->business_name,
-            'logo_url' => $settings->logo_path ? Storage::disk('public')->url($settings->logo_path) : null,
+            'logo_url' => $settings->logo_path ? Storage::disk('r2-public')->url($settings->logo_path) : null,
         ];
     }
 

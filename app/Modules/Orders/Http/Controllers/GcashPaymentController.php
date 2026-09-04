@@ -70,7 +70,7 @@ class GcashPaymentController extends Controller
         return Inertia::render('modules/payments/Create', [
             'order'       => $this->paymentOrderData($order),
             'installment' => $this->installmentData($installment),
-            'gcash'       => ['account_name' => $gcash->account_name, 'account_number' => $gcash->account_number, 'qr_code_url' => Storage::disk('public')->url($gcash->qr_code_path)],
+            'gcash'       => ['account_name' => $gcash->account_name, 'account_number' => $gcash->account_number, 'qr_code_url' => Storage::disk('r2-public')->url($gcash->qr_code_path)],
         ]);
     }
 
@@ -94,7 +94,7 @@ class GcashPaymentController extends Controller
                     throw ValidationException::withMessages(['amount' => 'Payment cannot be greater than this installment\'s remaining balance.']);
                 }
 
-                $screenshotPath = $request->file('screenshot')->store('gcash-payment-screenshots', 'local');
+                $screenshotPath = $request->file('screenshot')->store('gcash-payment-screenshots', 'r2-private');
 
                 return GcashPayment::create([
                     'order_id'               => $lockedOrder->id,
@@ -108,7 +108,7 @@ class GcashPaymentController extends Controller
             });
         } catch (\Throwable $exception) {
             if ($screenshotPath) {
-                Storage::disk('local')->delete($screenshotPath);
+                Storage::disk('r2-private')->delete($screenshotPath);
             }
 
             throw $exception;
@@ -132,9 +132,9 @@ class GcashPaymentController extends Controller
     public function screenshot(Request $request, GcashPayment $gcashPayment)
     {
         abort_unless($request->user()?->is_admin || $gcashPayment->customer_id === $request->user()?->id, 403);
-        abort_unless(Storage::disk('local')->exists($gcashPayment->screenshot_path), 404);
+        abort_unless(Storage::disk('r2-private')->exists($gcashPayment->screenshot_path), 404);
 
-        return Storage::disk('local')->response($gcashPayment->screenshot_path);
+        return Storage::disk('r2-private')->response($gcashPayment->screenshot_path);
     }
 
     public function approve(ReviewGcashPaymentRequest $request, GcashPayment $gcashPayment): RedirectResponse

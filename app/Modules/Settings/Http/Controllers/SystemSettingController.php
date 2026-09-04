@@ -33,12 +33,12 @@ class SystemSettingController extends Controller
         return Inertia::render('modules/settings/System', [
             'settings' => [
                 'business_name'             => $system->business_name,
-                'logo_url'                  => $system->logo_path ? Storage::disk('public')->url($system->logo_path) : null,
+                'logo_url'                  => $system->logo_path ? Storage::disk('r2-public')->url($system->logo_path) : null,
                 'contact_number'            => $system->contact_number,
                 'address'                   => $system->address,
                 'gcash_account_name'        => $gcash?->account_name,
                 'gcash_account_number'      => $gcash?->account_number,
-                'gcash_qr_code_url'         => $gcash?->qr_code_path ? Storage::disk('public')->url($gcash->qr_code_path) : null,
+                'gcash_qr_code_url'         => $gcash?->qr_code_path ? Storage::disk('r2-public')->url($gcash->qr_code_path) : null,
                 'pautang_enabled'           => $system->pautang_enabled,
                 'pautang_installments'      => $system->pautang_installments,
                 'pautang_payment_term_days' => $system->pautang_payment_term_days,
@@ -66,8 +66,8 @@ class SystemSettingController extends Controller
         $gcash->id     = 1;
         $oldLogoPath   = $system->logo_path;
         $oldQrPath     = $gcash->qr_code_path;
-        $newLogoPath   = $request->file('logo')?->store('business-logos', 'public');
-        $newQrPath     = $request->file('gcash_qr_code')?->store('gcash-qr', 'public');
+        $newLogoPath   = $request->file('logo')?->store('business-logos', 'r2-public');
+        $newQrPath     = $request->file('gcash_qr_code')?->store('gcash-qr', 'r2-public');
         $changedFields = $this->changedFields($system, $gcash, $attributes, $newLogoPath, $newQrPath);
 
         try {
@@ -111,19 +111,19 @@ class SystemSettingController extends Controller
             });
         } catch (\Throwable $exception) {
             if ($newLogoPath) {
-                Storage::disk('public')->delete($newLogoPath);
+                Storage::disk('r2-public')->delete($newLogoPath);
             }
             if ($newQrPath) {
-                Storage::disk('public')->delete($newQrPath);
+                Storage::disk('r2-public')->delete($newQrPath);
             }
             throw $exception;
         }
 
         if ($newLogoPath && $oldLogoPath) {
-            Storage::disk('public')->delete($oldLogoPath);
+            Storage::disk('r2-public')->delete($oldLogoPath);
         }
         if ($newQrPath && $oldQrPath) {
-            Storage::disk('public')->delete($oldQrPath);
+            Storage::disk('r2-public')->delete($oldQrPath);
         }
 
         return to_route('system-settings.edit')->with('success', 'System settings updated successfully.');
