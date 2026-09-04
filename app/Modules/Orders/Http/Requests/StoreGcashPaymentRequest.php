@@ -21,6 +21,7 @@ class StoreGcashPaymentRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'idempotency_key'        => ['required', 'uuid'],
             'pautang_installment_id' => ['required', 'integer', 'exists:pautang_installments,id'],
             'amount'                 => ['required', 'numeric', 'min:0.01', 'decimal:0,2'],
             'reference_number'       => ['required', 'string', 'max:100'],

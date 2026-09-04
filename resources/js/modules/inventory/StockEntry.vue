@@ -23,6 +23,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ]
 
 const form = useForm({
+  idempotency_key: crypto.randomUUID(),
   type: 'stock_in' as MovementType,
   quantity: 1,
   adjustment_direction: 'increase',

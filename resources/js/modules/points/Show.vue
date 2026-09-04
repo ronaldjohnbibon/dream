@@ -32,7 +32,7 @@ const breadcrumbs: BreadcrumbItem[] = props.canAdjust
 
 const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' })
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
-const adjustment = useForm({ points: 0, reason: '' })
+const adjustment = useForm({ idempotency_key: crypto.randomUUID(), points: 0, reason: '' })
 
 const typeLabel = (type: PointsLedgerType) =>
   ({

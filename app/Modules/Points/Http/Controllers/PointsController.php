@@ -40,6 +40,10 @@ class PointsController extends Controller
 
         DB::transaction(function () use ($request, $customer, $attributes): void {
             $lockedCustomer = User::query()->lockForUpdate()->findOrFail($customer->id);
+            if (PointsLedger::query()->where('idempotency_key', $attributes['idempotency_key'])->exists()) {
+                return;
+            }
+
             $points         = (int) $attributes['points'];
             $balance        = $this->points->currentBalance($lockedCustomer);
 
@@ -54,6 +58,7 @@ class PointsController extends Controller
                 $points,
                 trim($attributes['reason']),
                 $request->user(),
+                $attributes['idempotency_key'],
             );
             $change = $points > 0 ? "+{$points}" : (string) $points;
             $this->activityLogs->record(

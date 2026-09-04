@@ -78,10 +78,20 @@ class GcashPaymentController extends Controller
     {
         $attributes     = $request->validated();
         $screenshotPath = null;
+        $created        = false;
 
         try {
-            $payment = DB::transaction(function () use ($request, $order, $attributes, &$screenshotPath): GcashPayment {
+            $payment = DB::transaction(function () use ($request, $order, $attributes, &$screenshotPath, &$created): GcashPayment {
                 $lockedOrder = Order::query()->lockForUpdate()->findOrFail($order->id);
+                $existingPayment = GcashPayment::query()
+                    ->where('order_id', $lockedOrder->id)
+                    ->where('customer_id', $request->user()->id)
+                    ->where('idempotency_key', $attributes['idempotency_key'])
+                    ->first();
+                if ($existingPayment) {
+                    return $existingPayment;
+                }
+
                 $installment = $this->installmentFromAttributes($attributes, $lockedOrder);
                 $this->ensureSubmittable($lockedOrder, $installment);
 
@@ -94,18 +104,37 @@ class GcashPaymentController extends Controller
                     throw ValidationException::withMessages(['amount' => 'Payment cannot be greater than this installment\'s remaining balance.']);
                 }
 
+                $referenceNumber = strtoupper(trim($attributes['reference_number']));
+                if (GcashPayment::query()->where('reference_number', $referenceNumber)->exists()) {
+                    throw ValidationException::withMessages(['reference_number' => 'This GCash reference number has already been submitted.']);
+                }
+
                 $screenshotPath = $request->file('screenshot')->store('gcash-payment-screenshots', 'r2-private');
 
-                return GcashPayment::create([
+                $payment = GcashPayment::create([
+                    'idempotency_key'        => $attributes['idempotency_key'],
                     'order_id'               => $lockedOrder->id,
                     'pautang_installment_id' => $installment->id,
                     'customer_id'            => $request->user()->id,
                     'amount'                 => number_format($amount, 2, '.', ''),
-                    'reference_number'       => trim($attributes['reference_number']),
+                    'reference_number'       => $referenceNumber,
                     'screenshot_path'        => $screenshotPath,
                     'payment_date'           => $attributes['payment_date'],
                 ]);
+                $created = true;
+
+                return $payment;
             });
+        } catch (QueryException $exception) {
+            if ($screenshotPath) {
+                Storage::disk('r2-private')->delete($screenshotPath);
+            }
+
+            if ((string) $exception->getCode() === '23000') {
+                throw ValidationException::withMessages(['reference_number' => 'This GCash reference number has already been submitted.']);
+            }
+
+            throw $exception;
         } catch (\Throwable $exception) {
             if ($screenshotPath) {
                 Storage::disk('r2-private')->delete($screenshotPath);
@@ -114,7 +143,9 @@ class GcashPaymentController extends Controller
             throw $exception;
         }
 
-        $this->notifications->paymentSubmitted($payment->load(['order', 'customer']));
+        if ($created) {
+            $this->notifications->paymentSubmitted($payment->load(['order', 'customer']));
+        }
 
         return to_route('orders.show', $order)->with('success', 'GCash payment submitted for verification.');
     }

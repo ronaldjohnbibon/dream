@@ -23,6 +23,7 @@ class PointsLedger extends Model
 
     /** @var list<string> */
     protected $fillable = [
+        'idempotency_key',
         'customer_id',
         'order_id',
         'pautang_installment_id',

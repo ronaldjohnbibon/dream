@@ -33,6 +33,7 @@ class Order extends Model
 
     /** @var list<string> */
     protected $fillable = [
+        'idempotency_key',
         'order_number',
         'customer_id',
         'rice_product_id',

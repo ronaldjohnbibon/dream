@@ -156,6 +156,10 @@ class RiceProductController extends Controller
 
         DB::transaction(function () use ($attributes, $riceProduct, $request): void {
             $product       = RiceProduct::query()->lockForUpdate()->findOrFail($riceProduct->id);
+            if (StockMovement::query()->where('idempotency_key', $attributes['idempotency_key'])->exists()) {
+                return;
+            }
+
             $previousStock = $product->available_stock;
             $newStock      = $previousStock + $this->stockChange($attributes);
 
@@ -167,6 +171,7 @@ class RiceProductController extends Controller
 
             $product->update(['available_stock' => $newStock]);
             $movement = $product->stockMovements()->create([
+                'idempotency_key' => $attributes['idempotency_key'],
                 'quantity'       => $attributes['quantity'],
                 'type'           => $attributes['type'],
                 'previous_stock' => $previousStock,

@@ -15,6 +15,7 @@ class AdjustPointsRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'idempotency_key' => ['required', 'uuid'],
             'points' => ['required', 'integer', 'not_in:0', 'between:-1000000,1000000'],
             'reason' => ['required', 'string', 'max:1000'],
         ];

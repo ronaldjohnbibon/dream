@@ -28,6 +28,7 @@ const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Place order', href: route('orders.create') },
 ]
 const form = useForm({
+  idempotency_key: crypto.randomUUID(),
   rice_product_id: null as number | null,
   quantity: 1,
   points_to_use: 0,

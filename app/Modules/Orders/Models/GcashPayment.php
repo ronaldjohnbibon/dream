@@ -15,6 +15,7 @@ class GcashPayment extends Model
 
     /** @var list<string> */
     protected $fillable = [
+        'idempotency_key',
         'order_id',
         'pautang_installment_id',
         'customer_id',

@@ -101,9 +101,10 @@ class PointsService
         return $ledger->wasRecentlyCreated ? $ledger : null;
     }
 
-    public function createAdminAdjustment(User $customer, int $points, string $reason, User $admin): PointsLedger
+    public function createAdminAdjustment(User $customer, int $points, string $reason, User $admin, string $idempotencyKey): PointsLedger
     {
         return $customer->pointsLedgers()->create([
+            'idempotency_key'  => $idempotencyKey,
             'type'             => 'admin_adjustment',
             'points'           => $points,
             'description'      => "Admin adjustment by {$admin->name}: {$reason}",

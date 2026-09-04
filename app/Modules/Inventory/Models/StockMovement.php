@@ -23,6 +23,7 @@ class StockMovement extends Model
 
     /** @var list<string> */
     protected $fillable = [
+        'idempotency_key',
         'quantity',
         'type',
         'previous_stock',

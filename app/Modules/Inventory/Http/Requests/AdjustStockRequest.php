@@ -21,6 +21,7 @@ class AdjustStockRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'idempotency_key'        => ['required', 'uuid'],
             'type'                 => ['required', 'string', Rule::in(StockMovement::TYPES)],
             'quantity'             => ['required', 'integer', 'min:1'],
             'adjustment_direction' => ['nullable', 'required_if:type,adjustment', Rule::in(['increase', 'decrease'])],

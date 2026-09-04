@@ -17,6 +17,7 @@ class StoreOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'idempotency_key'  => ['required', 'uuid'],
             'rice_product_id'  => ['required', 'integer', 'exists:rice_products,id'],
             'quantity'         => ['required', 'integer', 'min:1'],
             'points_to_use'    => ['nullable', 'integer', 'min:0'],

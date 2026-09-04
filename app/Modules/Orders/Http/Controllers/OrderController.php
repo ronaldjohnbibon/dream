@@ -95,9 +95,18 @@ class OrderController extends Controller
     {
         $attributes     = $request->validated();
         $redeemedPoints = null;
+        $created        = false;
 
-        $order = DB::transaction(function () use ($attributes, $request, &$redeemedPoints): Order {
+        $order = DB::transaction(function () use ($attributes, $request, &$redeemedPoints, &$created): Order {
             $customer = User::query()->lockForUpdate()->findOrFail($request->user()->id);
+            $existingOrder = Order::query()
+                ->where('customer_id', $customer->id)
+                ->where('idempotency_key', $attributes['idempotency_key'])
+                ->first();
+            if ($existingOrder) {
+                return $existingOrder;
+            }
+
             if ($customer->account_status === 'suspended') {
                 throw ValidationException::withMessages(['rice_product_id' => 'Suspended customers cannot place orders.']);
             }
@@ -128,6 +137,7 @@ class OrderController extends Controller
             $finalAmount    = max(0, round($subtotal - $pointsDiscount + $fee, 2));
             $previousStock  = $product->available_stock;
             $order          = Order::create([
+                'idempotency_key' => $attributes['idempotency_key'],
                 'customer_id'  => $customer->id, 'rice_product_id' => $product->id, 'quantity' => $quantity, 'unit_price' => number_format($unitPrice, 2, '.', ''), 'subtotal' => number_format($subtotal, 2, '.', ''),
                 'points_used'  => $pointsToUse, 'points_discount' => number_format($pointsDiscount, 2, '.', ''), 'delivery_fee' => number_format($fee, 2, '.', ''), 'final_amount' => number_format($finalAmount, 2, '.', ''), 'amount_paid' => '0.00', 'remaining_balance' => number_format($finalAmount, 2, '.', ''),
                 'payment_type' => Order::PAYMENT_TYPE, 'delivery_address' => $attributes['delivery_address'], 'delivery_area' => $area->name, 'order_date' => today(), 'order_status' => 'pending', 'payment_status' => $finalAmount <= 0 ? 'paid' : 'unpaid', 'notes' => $attributes['notes'] ?? null,
@@ -148,12 +158,16 @@ class OrderController extends Controller
                 "Order {$order->order_number} created for {$quantity} sack(s) of {$product->name}.",
             );
 
+            $created = true;
+
             return $order;
         });
-        if ($redeemedPoints) {
+        if ($created && $redeemedPoints) {
             $this->notifications->pointsRedeemed($order, $redeemedPoints);
         }
-        $this->notifications->newOrder($order);
+        if ($created) {
+            $this->notifications->newOrder($order);
+        }
 
         return to_route('orders.show', $order)->with('success', 'Order placed successfully.');
     }

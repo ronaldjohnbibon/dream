@@ -27,6 +27,7 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => [
   },
 ])
 const form = useForm({
+  idempotency_key: crypto.randomUUID(),
   pautang_installment_id: props.installment.id,
   amount: '',
   reference_number: '',
