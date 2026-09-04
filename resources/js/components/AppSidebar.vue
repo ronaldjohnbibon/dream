@@ -1,14 +1,31 @@
 <script setup lang="ts">
+import CustomerMobileNav from '@/components/CustomerMobileNav.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import { useSidebar } from '@/components/ui/sidebar/utils';
 import type { NavItem, SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { Award, Bell, ChartNoAxesCombined, ClipboardList, CreditCard, HandCoins, LayoutGrid, MapPin, PackageSearch, ShoppingCart, Truck, Users } from 'lucide-vue-next';
+import {
+    Award,
+    Bell,
+    ChartNoAxesCombined,
+    ClipboardList,
+    CreditCard,
+    HandCoins,
+    LayoutGrid,
+    MapPin,
+    PackageSearch,
+    ShoppingCart,
+    Truck,
+    Users,
+} from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';
 
 const page = usePage<SharedData>();
+const { isMobile } = useSidebar();
+const isCustomer = computed(() => page.props.auth.user?.is_admin === false);
 
 const mainNavItems = computed<NavItem[]>(() => {
     const items: NavItem[] = [{ title: 'Dashboard', href: route('dashboard'), icon: LayoutGrid }];
@@ -37,7 +54,7 @@ const mainNavItems = computed<NavItem[]>(() => {
 </script>
 
 <template>
-    <Sidebar collapsible="icon" variant="inset">
+    <Sidebar v-if="!isCustomer || !isMobile" collapsible="icon" variant="inset">
         <SidebarHeader>
             <SidebarMenu>
                 <SidebarMenuItem>
@@ -58,5 +75,6 @@ const mainNavItems = computed<NavItem[]>(() => {
             <NavUser />
         </SidebarFooter>
     </Sidebar>
+    <CustomerMobileNav v-if="isCustomer" />
     <slot />
 </template>
