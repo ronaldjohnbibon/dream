@@ -139,10 +139,11 @@ class GcashPaymentController extends Controller
 
     public function approve(ReviewGcashPaymentRequest $request, GcashPayment $gcashPayment): RedirectResponse
     {
-        $earnedLedgerId = null;
+        /** @var list<int> $earnedLedgerIds */
+        $earnedLedgerIds = [];
 
         try {
-            DB::transaction(function () use ($request, $gcashPayment, &$earnedLedgerId): void {
+            DB::transaction(function () use ($request, $gcashPayment, &$earnedLedgerIds): void {
                 $payment = GcashPayment::query()->lockForUpdate()->findOrFail($gcashPayment->id);
                 $this->ensurePending($payment);
                 $order = Order::query()->lockForUpdate()->findOrFail($payment->order_id);
@@ -189,9 +190,14 @@ class GcashPaymentController extends Controller
                     "GCash payment #{$payment->id} for order {$order->order_number} approved.",
                 );
 
-                if ($installment) {
-                    $earnedLedger = $this->points->awardOnTimeInstallmentPayment($order, $installment, $payment);
-                    $earnedLedgerId = $earnedLedger?->id;
+                $installmentLedger = $this->points->awardOnTimeInstallmentPayment($order, $installment, $payment);
+                if ($installmentLedger) {
+                    $earnedLedgerIds[] = $installmentLedger->id;
+                }
+
+                $completionLedger = $this->points->awardCompletedPautang($order, $payment);
+                if ($completionLedger) {
+                    $earnedLedgerIds[] = $completionLedger->id;
                 }
             });
         } catch (QueryException $exception) {
@@ -203,7 +209,7 @@ class GcashPaymentController extends Controller
         }
 
         $this->notifications->paymentApproved($gcashPayment->fresh(['order', 'customer']));
-        if ($earnedLedgerId) {
+        foreach ($earnedLedgerIds as $earnedLedgerId) {
             $this->notifications->pointsEarned(PointsLedger::query()->with('order')->findOrFail($earnedLedgerId));
         }
 
@@ -284,6 +290,15 @@ class GcashPaymentController extends Controller
         if ($payment->status !== 'pending_verification') {
             throw ValidationException::withMessages(['payment' => 'Only pending payments can be reviewed.']);
         }
+    }
+
+    private function updateOrderTotals(Order $order, float $amountPaid, float $remainingBalance): void
+    {
+        $order->update([
+            'amount_paid' => number_format($amountPaid, 2, '.', ''),
+            'remaining_balance' => number_format($remainingBalance, 2, '.', ''),
+            'payment_status' => $remainingBalance <= 0 ? 'paid' : ($amountPaid > 0 ? 'partially_paid' : 'unpaid'),
+        ]);
     }
 
     /** @param Collection<int, PautangInstallment> $installments */

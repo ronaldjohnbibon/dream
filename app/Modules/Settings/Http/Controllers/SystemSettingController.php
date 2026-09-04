@@ -154,7 +154,7 @@ class SystemSettingController extends Controller
         $add('Pautang maximum sacks', $system->pautang_max_sacks, $attributes['pautang_max_sacks']);
         $add('Pautang grace period', $system->pautang_grace_period_days, $attributes['pautang_grace_period_days']);
         $add('Points enabled', $points->is_enabled, $attributes['points_enabled']);
-        $add('Completed-order points', $points->completed_order_points, $attributes['completed_order_points']);
+        $add('Completed-pautang points', $points->completed_order_points, $attributes['completed_order_points']);
         $add('On-time payment points', $points->on_time_payment_points, $attributes['on_time_payment_points']);
         $add('Point-to-peso conversion', (float) $points->peso_per_point, (float) $attributes['peso_per_point']);
         $add('Minimum redemption', $points->minimum_redemption, $attributes['minimum_redemption']);

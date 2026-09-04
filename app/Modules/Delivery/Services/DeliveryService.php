@@ -8,7 +8,6 @@ use App\Modules\Inventory\Models\RiceProduct;
 use App\Modules\Logs\Services\ActivityLogger;
 use App\Modules\Notifications\Services\CustomerNotificationService;
 use App\Modules\Orders\Models\Order;
-use App\Modules\Points\Models\PointsLedger;
 use App\Modules\Points\Services\PointsService;
 use App\Modules\Settings\Models\SystemSetting;
 use App\Modules\Users\Models\User;
@@ -117,13 +116,6 @@ class DeliveryService
             if ($isStatusChange) {
                 $notificationData[] = ['status' => $nextStatus, 'order_id' => $order->id];
             }
-            if ($isDelivered) {
-                $earnedLedger = $this->points->awardCompletedOrder($order->fresh());
-                if ($earnedLedger instanceof PointsLedger) {
-                    $notificationData[] = ['points_ledger_id' => $earnedLedger->id];
-                }
-            }
-
             return $lockedDelivery->fresh(['order.riceProduct', 'customer', 'deliveryArea']);
         });
 
@@ -135,11 +127,6 @@ class DeliveryService
                 );
             }
 
-            if (isset($notification['points_ledger_id'])) {
-                $this->notifications->pointsEarned(
-                    PointsLedger::query()->with('order')->findOrFail($notification['points_ledger_id']),
-                );
-            }
         }
 
         return $updatedDelivery;

@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('points_settings', function (Blueprint $table) {
             $table->id();
             $table->unsignedInteger('completed_order_points')->default(10);
-            $table->unsignedInteger('on_time_payment_points')->default(5);
+            $table->unsignedInteger('on_time_payment_points')->default(10);
             $table->decimal('peso_per_point', 12, 2)->default(0.10);
             $table->timestamps();
         });

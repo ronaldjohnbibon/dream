@@ -128,7 +128,7 @@ const submit = () => {
                                 <Input id="points-to-use" v-model.number="form.points_to_use" type="number" min="0" :max="maximumPointsToUse" step="1" :disabled="maximumPointsToUse === 0" />
                             </FormField>
                             <div class="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                                <span>Use at least {{ points.minimum_redemption }} and up to {{ maximumPointsToUse }} points on this order.</span>
+                                <span>Use at least {{ points.minimum_redemption }} and up to this order.</span>
                                 <Button v-if="canPayFullyWithPoints" type="button" size="sm" variant="outline" @click="payFullyUsingPoints">Pay Fully Using Points</Button>
                             </div>
                         </div>

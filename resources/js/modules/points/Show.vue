@@ -32,7 +32,7 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }
 const adjustment = useForm({ points: 0, reason: '' });
 
 const typeLabel = (type: PointsLedgerType) => ({
-    order_reward: 'Order Reward',
+    order_reward: 'Completed Pautang Reward',
     on_time_payment_bonus: 'On-Time Payment Bonus',
     redemption: 'Redemption',
     redemption_refund: 'Redemption Refund',

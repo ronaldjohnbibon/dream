@@ -75,7 +75,7 @@ const paymentReviewStatusLabel = (status: CustomerPaymentHistory['status']) =>
     ({ pending_verification: 'Pending Verification', approved: 'Approved', rejected: 'Rejected' })[status];
 const pointsTypeLabel = (type: CustomerPointsHistory['type']) =>
     ({
-        order_reward: 'Order Reward',
+        order_reward: 'Completed Pautang Reward',
         on_time_payment_bonus: 'On-Time Payment Bonus',
         redemption: 'Redemption',
         redemption_refund: 'Redemption Refund',

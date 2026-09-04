@@ -73,7 +73,7 @@ const paymentClass = (status: PaymentStatus) => ({ unpaid: 'bg-amber-100 text-am
 const deliveryClass = (status: DeliveryStatus | null) => status ? ({ pending: 'bg-amber-100 text-amber-800', scheduled: 'bg-sky-100 text-sky-800', preparing: 'bg-violet-100 text-violet-800', out_for_delivery: 'bg-indigo-100 text-indigo-800', delivered: 'bg-emerald-100 text-emerald-800', failed: 'bg-red-100 text-red-800', cancelled: 'bg-slate-100 text-slate-800' })[status] : 'bg-slate-100 text-slate-800';
 const gcashPaymentLabel = (status: GcashPaymentStatus) => ({ pending_verification: 'Pending verification', approved: 'Approved', rejected: 'Rejected' })[status];
 const gcashPaymentClass = (status: GcashPaymentStatus) => ({ pending_verification: 'bg-amber-100 text-amber-800', approved: 'bg-emerald-100 text-emerald-800', rejected: 'bg-red-100 text-red-800' })[status];
-const pointsTypeLabel = (type: string) => ({ order_reward: 'Order reward', on_time_payment_bonus: 'On-time payment bonus', redemption: 'Redemption', redemption_refund: 'Redemption refund', admin_adjustment: 'Admin adjustment' })[type] ?? 'Points transaction';
+const pointsTypeLabel = (type: string) => ({ order_reward: 'Completed pautang reward', on_time_payment_bonus: 'On-time payment bonus', redemption: 'Redemption', redemption_refund: 'Redemption refund', admin_adjustment: 'Admin adjustment' })[type] ?? 'Points transaction';
 </script>
 
 <template>

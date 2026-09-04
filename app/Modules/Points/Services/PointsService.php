@@ -17,7 +17,7 @@ class PointsService
             ['id' => 1],
             [
                 'completed_order_points' => 10,
-                'on_time_payment_points' => 5,
+                'on_time_payment_points' => 10,
                 'peso_per_point' => '0.10',
                 'is_enabled' => true,
                 'minimum_redemption' => 1,
@@ -35,9 +35,13 @@ class PointsService
             ->sum('points');
     }
 
-    public function awardCompletedOrder(Order $order): ?PointsLedger
+    public function awardCompletedPautang(Order $order, GcashPayment $payment): ?PointsLedger
     {
-        if (! $this->settings()->is_enabled || $order->order_status !== 'delivered') {
+        if (! $this->settings()->is_enabled || $order->order_status === 'cancelled'
+            || $payment->status !== 'approved'
+            || (float) $order->remaining_balance > 0
+            || $order->pautangInstallments()->doesntExist()
+            || $order->pautangInstallments()->where('remaining_balance', '>', 0)->exists()) {
             return null;
         }
 
@@ -56,8 +60,8 @@ class PointsService
                 'customer_id' => $order->customer_id,
                 'order_id' => $order->id,
                 'points' => $points,
-                'description' => "Delivered order {$order->order_number} reward.",
-                'transaction_date' => today(),
+                'description' => "Completed pautang reward for order {$order->order_number}.",
+                'transaction_date' => $payment->payment_date,
             ],
         );
 

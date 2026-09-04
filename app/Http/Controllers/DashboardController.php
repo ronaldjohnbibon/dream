@@ -278,7 +278,7 @@ class DashboardController extends Controller
     {
         $installments = PautangInstallment::query()->where('remaining_balance', '<=', 0)
             ->whereHas('order', fn (Builder $query) => $query->where('order_status', '!=', 'cancelled'))
-            ->with(['gcashPayments' => fn (Builder $query) => $query->where('status', 'approved')->orderByDesc('payment_date')])
+            ->with(['gcashPayments' => fn ($query) => $query->where('status', 'approved')->orderByDesc('payment_date')])
             ->get(['id', 'due_date']);
         $onTime = 0;
         $late = 0;
