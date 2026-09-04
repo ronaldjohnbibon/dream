@@ -39,9 +39,9 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         return array_merge(parent::share($request), [
-            'name' => config('app.name'),
+            'name'     => config('app.name'),
             'business' => fn () => $this->business(),
-            'auth' => [
+            'auth'     => [
                 'user' => $request->user()?->only(['id', 'name', 'email', 'is_admin']),
             ],
             'flash' => [
@@ -57,7 +57,7 @@ class HandleInertiaRequests extends Middleware
         $settings = SystemSetting::current();
 
         return [
-            'name' => $settings->business_name,
+            'name'     => $settings->business_name,
             'logo_url' => $settings->logo_path ? Storage::disk('public')->url($settings->logo_path) : null,
         ];
     }
@@ -73,7 +73,7 @@ class HandleInertiaRequests extends Middleware
 
         return [
             'unread_count' => $user->unreadNotifications()->count(),
-            'recent' => $user->notifications()
+            'recent'       => $user->notifications()
                 ->latest()
                 ->limit(5)
                 ->get()

@@ -17,11 +17,11 @@ class StockMovementController extends Controller
 
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
-            'type' => ['nullable', 'in:all,'.implode(',', StockMovement::TYPES)],
+            'type'   => ['nullable', 'in:all,'.implode(',', StockMovement::TYPES)],
         ]);
 
         $search = $filters['search'] ?? '';
-        $type = $filters['type'] ?? 'all';
+        $type   = $filters['type']   ?? 'all';
 
         $movements = StockMovement::query()
             ->with(['riceProduct:id,name,brand', 'user:id,name'])
@@ -36,7 +36,7 @@ class StockMovementController extends Controller
 
         return Inertia::render('modules/inventory/Movements', [
             'movements' => $movements,
-            'filters' => ['search' => $search, 'type' => $type],
+            'filters'   => ['search' => $search, 'type' => $type],
         ]);
     }
 
@@ -44,20 +44,20 @@ class StockMovementController extends Controller
     private function movementData(StockMovement $movement): array
     {
         return [
-            'id' => $movement->id,
+            'id'           => $movement->id,
             'rice_product' => [
-                'id' => $movement->riceProduct->id,
-                'name' => $movement->riceProduct->name,
+                'id'    => $movement->riceProduct->id,
+                'name'  => $movement->riceProduct->name,
                 'brand' => $movement->riceProduct->brand,
             ],
-            'quantity' => $movement->quantity,
-            'type' => $movement->type,
+            'quantity'       => $movement->quantity,
+            'type'           => $movement->type,
             'previous_stock' => $movement->previous_stock,
-            'new_stock' => $movement->new_stock,
-            'order_id' => $movement->order_id,
-            'notes' => $movement->notes,
-            'user_name' => $movement->user?->name ?? 'Deleted user',
-            'created_at' => $movement->created_at->toISOString(),
+            'new_stock'      => $movement->new_stock,
+            'order_id'       => $movement->order_id,
+            'notes'          => $movement->notes,
+            'user_name'      => $movement->user?->name ?? 'Deleted user',
+            'created_at'     => $movement->created_at->toISOString(),
         ];
     }
 }

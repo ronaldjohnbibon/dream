@@ -15,7 +15,7 @@ class ProfileController extends Controller
     {
         return Inertia::render('modules/settings/Profile', [
             'user' => [
-                'name' => $request->user()->name,
+                'name'  => $request->user()->name,
                 'email' => $request->user()->email,
             ],
         ]);

@@ -21,11 +21,11 @@ class AdjustStockRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', 'string', Rule::in(StockMovement::TYPES)],
-            'quantity' => ['required', 'integer', 'min:1'],
+            'type'                 => ['required', 'string', Rule::in(StockMovement::TYPES)],
+            'quantity'             => ['required', 'integer', 'min:1'],
             'adjustment_direction' => ['nullable', 'required_if:type,adjustment', Rule::in(['increase', 'decrease'])],
-            'order_id' => ['nullable', 'integer', 'min:1'],
-            'notes' => ['nullable', 'string', 'max:2000'],
+            'order_id'             => ['nullable', 'integer', 'min:1'],
+            'notes'                => ['nullable', 'string', 'max:2000'],
         ];
     }
 }

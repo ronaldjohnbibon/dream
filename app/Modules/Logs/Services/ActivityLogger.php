@@ -11,12 +11,12 @@ class ActivityLogger
     public function record(User $user, string $module, string $action, Model $related, string $description): ActivityLog
     {
         return ActivityLog::create([
-            'user_id' => $user->id,
-            'module' => $module,
-            'action' => $action,
+            'user_id'      => $user->id,
+            'module'       => $module,
+            'action'       => $action,
             'related_type' => $related->getMorphClass(),
-            'related_id' => $related->getKey(),
-            'description' => $description,
+            'related_id'   => $related->getKey(),
+            'description'  => $description,
         ]);
     }
 }

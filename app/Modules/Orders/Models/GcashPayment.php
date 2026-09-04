@@ -33,9 +33,9 @@ class GcashPayment extends Model
     protected function casts(): array
     {
         return [
-            'amount' => 'decimal:2',
+            'amount'       => 'decimal:2',
             'payment_date' => 'date',
-            'reviewed_at' => 'datetime',
+            'reviewed_at'  => 'datetime',
         ];
     }
 

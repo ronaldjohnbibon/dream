@@ -2,13 +2,13 @@
 
 namespace App\Providers;
 
-use App\Modules\Inventory\Models\RiceProduct;
-use App\Modules\Inventory\Policies\RiceProductPolicy;
-use App\Modules\Notifications\Console\SendInstallmentReminders;
 use App\Modules\Delivery\Models\Delivery;
 use App\Modules\Delivery\Models\DeliveryArea;
 use App\Modules\Delivery\Policies\DeliveryAreaPolicy;
 use App\Modules\Delivery\Policies\DeliveryPolicy;
+use App\Modules\Inventory\Models\RiceProduct;
+use App\Modules\Inventory\Policies\RiceProductPolicy;
+use App\Modules\Notifications\Console\SendInstallmentReminders;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Policies\OrderPolicy;
 use App\Modules\Users\Console\CreateAdmin;

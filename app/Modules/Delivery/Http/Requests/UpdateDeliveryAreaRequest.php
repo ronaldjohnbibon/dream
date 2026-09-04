@@ -17,8 +17,9 @@ class UpdateDeliveryAreaRequest extends FormRequest
     {
         /** @var DeliveryArea $area */
         $area = $this->route('deliveryArea');
+
         return [
-            'name' => ['required', 'string', 'max:255', Rule::unique('delivery_areas', 'name')->ignore($area)],
+            'name'         => ['required', 'string', 'max:255', Rule::unique('delivery_areas', 'name')->ignore($area)],
             'delivery_fee' => ['required', 'numeric', 'min:0', 'max:999999.99'],
         ];
     }

@@ -16,6 +16,7 @@ class DeliveryAreaController extends Controller
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', DeliveryArea::class);
+
         return Inertia::render('modules/delivery-areas/Index', [
             'areas' => DeliveryArea::query()->orderByDesc('is_active')->orderBy('name')->get()->map(fn (DeliveryArea $area) => $this->areaData($area)),
         ]);
@@ -24,12 +25,14 @@ class DeliveryAreaController extends Controller
     public function store(StoreDeliveryAreaRequest $request): RedirectResponse
     {
         DeliveryArea::create([...$request->validated(), 'is_active' => true]);
+
         return to_route('delivery-areas.index')->with('success', 'Delivery area added successfully.');
     }
 
     public function update(UpdateDeliveryAreaRequest $request, DeliveryArea $deliveryArea): RedirectResponse
     {
         $deliveryArea->update($request->validated());
+
         return to_route('delivery-areas.index')->with('success', 'Delivery area updated successfully.');
     }
 
@@ -38,6 +41,7 @@ class DeliveryAreaController extends Controller
         $this->authorize('update', $deliveryArea);
         $attributes = $request->validate(['is_active' => ['required', 'boolean']]);
         $deliveryArea->update($attributes);
+
         return to_route('delivery-areas.index')->with('success', 'Delivery area status updated successfully.');
     }
 

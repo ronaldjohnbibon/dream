@@ -27,15 +27,15 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => \fake()->name(),
-            'email' => \fake()->unique()->safeEmail(),
-            'mobile_number' => \fake()->numerify('09#########'),
+            'name'             => \fake()->name(),
+            'email'            => \fake()->unique()->safeEmail(),
+            'mobile_number'    => \fake()->numerify('09#########'),
             'complete_address' => \fake()->address(),
-            'delivery_area' => \fake()->city(),
-            'password' => static::$password ??= Hash::make('password'),
-            'remember_token' => Str::random(10),
-            'is_admin' => false,
-            'account_status' => 'good_standing',
+            'delivery_area'    => \fake()->city(),
+            'password'         => static::$password ??= Hash::make('password'),
+            'remember_token'   => Str::random(10),
+            'is_admin'         => false,
+            'account_status'   => 'good_standing',
         ];
     }
 }

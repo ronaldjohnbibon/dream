@@ -6,6 +6,7 @@ use App\Modules\Notifications\Services\CustomerNotificationService;
 use App\Modules\Orders\Models\PautangInstallment;
 use App\Modules\Settings\Models\SystemSetting;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 
 class SendInstallmentReminders extends Command
 {
@@ -15,9 +16,9 @@ class SendInstallmentReminders extends Command
 
     public function handle(CustomerNotificationService $notifications): int
     {
-        $today = now('Asia/Manila')->startOfDay();
+        $today    = now('Asia/Manila')->startOfDay();
         $upcoming = 0;
-        $overdue = 0;
+        $overdue  = 0;
 
         $this->installmentsDueOn($today->copy()->addDays(3)->toDateString())->each(function (PautangInstallment $installment) use ($notifications, &$upcoming): void {
             if ($notifications->upcomingInstallment($installment)) {
@@ -41,7 +42,7 @@ class SendInstallmentReminders extends Command
         return self::SUCCESS;
     }
 
-    /** @return \Illuminate\Support\Collection<int, PautangInstallment> */
+    /** @return Collection<int, PautangInstallment> */
     private function installmentsDueOn(string $date)
     {
         return PautangInstallment::query()

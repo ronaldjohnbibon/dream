@@ -1,10 +1,10 @@
 <?php
 
+use App\Modules\Settings\Models\SystemSetting;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use App\Modules\Settings\Models\SystemSetting;
 
 return new class extends Migration
 {

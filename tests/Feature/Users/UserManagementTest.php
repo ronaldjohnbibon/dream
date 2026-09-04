@@ -47,9 +47,9 @@ class UserManagementTest extends TestCase
 
         $this->actingAs($admin)
             ->post('/users', [
-                'name' => 'New User',
-                'email' => 'new@example.com',
-                'password' => 'password',
+                'name'                  => 'New User',
+                'email'                 => 'new@example.com',
+                'password'              => 'password',
                 'password_confirmation' => 'password',
             ])
             ->assertRedirect();
@@ -59,9 +59,9 @@ class UserManagementTest extends TestCase
 
         $this->actingAs($admin)
             ->put("/users/{$user->id}", [
-                'name' => 'Updated User',
-                'email' => $user->email,
-                'password' => '',
+                'name'                  => 'Updated User',
+                'email'                 => $user->email,
+                'password'              => '',
                 'password_confirmation' => '',
             ])
             ->assertRedirect("/users/{$user->id}");
@@ -85,9 +85,9 @@ class UserManagementTest extends TestCase
         $this->actingAs($actor)
             ->from("/users/{$admin->id}/edit")
             ->put("/users/{$admin->id}", [
-                'name' => $admin->name,
-                'email' => $admin->email,
-                'password' => '',
+                'name'                  => $admin->name,
+                'email'                 => $admin->email,
+                'password'              => '',
                 'password_confirmation' => '',
             ])
             ->assertRedirect("/users/{$admin->id}");
@@ -102,8 +102,8 @@ class UserManagementTest extends TestCase
             ->assertSuccessful();
 
         $this->assertDatabaseHas('users', [
-            'name' => 'First Admin',
-            'email' => 'admin@example.com',
+            'name'     => 'First Admin',
+            'email'    => 'admin@example.com',
             'is_admin' => true,
         ]);
     }

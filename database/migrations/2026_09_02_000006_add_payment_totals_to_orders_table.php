@@ -23,7 +23,7 @@ return new class extends Migration
 
         foreach ($pautangOrders as $pautangOrder) {
             DB::table('orders')->where('id', $pautangOrder->order_id)->update([
-                'amount_paid' => $pautangOrder->amount_paid,
+                'amount_paid'       => $pautangOrder->amount_paid,
                 'remaining_balance' => $pautangOrder->remaining_balance,
             ]);
         }

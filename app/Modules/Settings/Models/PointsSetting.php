@@ -25,10 +25,10 @@ class PointsSetting extends Model
         return [
             'completed_order_points' => 'integer',
             'on_time_payment_points' => 'integer',
-            'peso_per_point' => 'decimal:2',
-            'is_enabled' => 'boolean',
-            'minimum_redemption' => 'integer',
-            'maximum_points_usable' => 'integer',
+            'peso_per_point'         => 'decimal:2',
+            'is_enabled'             => 'boolean',
+            'minimum_redemption'     => 'integer',
+            'maximum_points_usable'  => 'integer',
         ];
     }
 }

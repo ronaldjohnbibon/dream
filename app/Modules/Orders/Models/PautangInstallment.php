@@ -31,11 +31,11 @@ class PautangInstallment extends Model
     protected function casts(): array
     {
         return [
-            'amount_due' => 'decimal:2',
-            'due_date' => 'date',
-            'amount_paid' => 'decimal:2',
+            'amount_due'        => 'decimal:2',
+            'due_date'          => 'date',
+            'amount_paid'       => 'decimal:2',
             'remaining_balance' => 'decimal:2',
-            'paid_date' => 'date',
+            'paid_date'         => 'date',
         ];
     }
 

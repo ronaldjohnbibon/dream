@@ -3,9 +3,6 @@
 namespace App\Modules\Users\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Users\Http\Requests\StoreCustomerRequest;
-use App\Modules\Users\Http\Requests\UpdateCustomerRequest;
-use App\Modules\Users\Models\User;
 use App\Modules\Logs\Services\ActivityLogger;
 use App\Modules\Orders\Models\GcashPayment;
 use App\Modules\Orders\Models\Order;
@@ -13,6 +10,9 @@ use App\Modules\Orders\Models\PautangInstallment;
 use App\Modules\Points\Models\PointsLedger;
 use App\Modules\Points\Services\PointsService;
 use App\Modules\Settings\Models\SystemSetting;
+use App\Modules\Users\Http\Requests\StoreCustomerRequest;
+use App\Modules\Users\Http\Requests\UpdateCustomerRequest;
+use App\Modules\Users\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,24 +21,22 @@ use Inertia\Response;
 
 class CustomerController extends Controller
 {
-    public function __construct(private readonly PointsService $points, private readonly ActivityLogger $activityLogs)
-    {
-    }
+    public function __construct(private readonly PointsService $points, private readonly ActivityLogger $activityLogs) {}
 
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', User::class);
 
         $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:100'],
-            'status' => ['nullable', 'in:all,good_standing,overdue,suspended'],
-            'sort' => ['nullable', 'in:name,email,mobile_number,created_at'],
+            'search'    => ['nullable', 'string', 'max:100'],
+            'status'    => ['nullable', 'in:all,good_standing,overdue,suspended'],
+            'sort'      => ['nullable', 'in:name,email,mobile_number,created_at'],
             'direction' => ['nullable', 'in:asc,desc'],
         ]);
 
-        $search = $filters['search'] ?? '';
-        $status = $filters['status'] ?? 'all';
-        $sort = $filters['sort'] ?? 'created_at';
+        $search    = $filters['search']       ?? '';
+        $status    = $filters['status']       ?? 'all';
+        $sort      = $filters['sort']           ?? 'created_at';
         $direction = $filters['direction'] ?? 'desc';
 
         $customers = User::query()
@@ -55,7 +53,7 @@ class CustomerController extends Controller
 
         return Inertia::render('modules/customers/Index', [
             'customers' => $customers,
-            'filters' => compact('search', 'status', 'sort', 'direction'),
+            'filters'   => compact('search', 'status', 'sort', 'direction'),
         ]);
     }
 
@@ -70,7 +68,7 @@ class CustomerController extends Controller
     {
         $customer = User::create([
             ...$request->validated(),
-            'is_admin' => false,
+            'is_admin'       => false,
             'account_status' => 'good_standing',
         ]);
 
@@ -85,8 +83,8 @@ class CustomerController extends Controller
 
         return Inertia::render('modules/customers/Show', [
             'customer' => $this->customerData($customer),
-            'summary' => $this->summaryData($customer, $gracePeriodDays),
-            'orders' => $customer->orders()
+            'summary'  => $this->summaryData($customer, $gracePeriodDays),
+            'orders'   => $customer->orders()
                 ->with(['riceProduct:id,name,brand,sack_size', 'pautangInstallments'])
                 ->latest('order_date')
                 ->latest('id')
@@ -181,15 +179,15 @@ class CustomerController extends Controller
     private function customerData(User $customer): array
     {
         return [
-            'id' => $customer->id,
-            'name' => $customer->name,
-            'email' => $customer->email,
-            'mobile_number' => $customer->mobile_number,
+            'id'               => $customer->id,
+            'name'             => $customer->name,
+            'email'            => $customer->email,
+            'mobile_number'    => $customer->mobile_number,
             'complete_address' => $customer->complete_address,
-            'delivery_area' => $customer->delivery_area,
-            'account_status' => $customer->account_status,
-            'created_at' => $customer->created_at->toISOString(),
-            'updated_at' => $customer->updated_at->toISOString(),
+            'delivery_area'    => $customer->delivery_area,
+            'account_status'   => $customer->account_status,
+            'created_at'       => $customer->created_at->toISOString(),
+            'updated_at'       => $customer->updated_at->toISOString(),
         ];
     }
 
@@ -213,7 +211,7 @@ class CustomerController extends Controller
             ->get();
 
         $onTimePayments = 0;
-        $latePayments = 0;
+        $latePayments   = 0;
         foreach ($completedInstallments as $installment) {
             $finalPaymentDate = $installment->gcashPayments->max('payment_date');
             if ($finalPaymentDate === null) {
@@ -227,18 +225,18 @@ class CustomerController extends Controller
             }
         }
 
-        $currentPoints = $this->points->currentBalance($customer);
+        $currentPoints  = $this->points->currentBalance($customer);
         $pointsSettings = $this->points->settings();
 
         return [
-            'total_orders' => $customer->orders()->count(),
-            'completed_pautang' => (clone $pautangOrders)->where('remaining_balance', '<=', 0)->count(),
-            'active_pautang' => (clone $activePautang)->count(),
-            'on_time_payments' => $onTimePayments,
-            'late_payments' => $latePayments,
+            'total_orders'        => $customer->orders()->count(),
+            'completed_pautang'   => (clone $pautangOrders)->where('remaining_balance', '<=', 0)->count(),
+            'active_pautang'      => (clone $activePautang)->count(),
+            'on_time_payments'    => $onTimePayments,
+            'late_payments'       => $latePayments,
             'outstanding_balance' => (float) (clone $activePautang)->sum('remaining_balance'),
-            'current_points' => $currentPoints,
-            'peso_equivalent' => number_format($currentPoints * (float) $pointsSettings->peso_per_point, 2, '.', ''),
+            'current_points'      => $currentPoints,
+            'peso_equivalent'     => number_format($currentPoints * (float) $pointsSettings->peso_per_point, 2, '.', ''),
         ];
     }
 
@@ -246,15 +244,15 @@ class CustomerController extends Controller
     private function orderHistoryData(Order $order, int $gracePeriodDays): array
     {
         return [
-            'id' => $order->id,
-            'order_number' => $order->order_number,
-            'order_date' => $order->order_date->toDateString(),
-            'product_name' => $order->riceProduct ? "{$order->riceProduct->name} {$order->riceProduct->brand}" : 'Deleted product',
-            'sack_size' => $order->riceProduct?->sack_size,
-            'quantity' => $order->quantity,
-            'payment_status' => $this->orderPaymentStatus($order, $gracePeriodDays),
-            'order_status' => $order->order_status,
-            'final_amount' => $order->final_amount,
+            'id'                => $order->id,
+            'order_number'      => $order->order_number,
+            'order_date'        => $order->order_date->toDateString(),
+            'product_name'      => $order->riceProduct ? "{$order->riceProduct->name} {$order->riceProduct->brand}" : 'Deleted product',
+            'sack_size'         => $order->riceProduct?->sack_size,
+            'quantity'          => $order->quantity,
+            'payment_status'    => $this->orderPaymentStatus($order, $gracePeriodDays),
+            'order_status'      => $order->order_status,
+            'final_amount'      => $order->final_amount,
             'remaining_balance' => $order->remaining_balance,
         ];
     }
@@ -263,11 +261,11 @@ class CustomerController extends Controller
     private function paymentHistoryData(GcashPayment $payment): array
     {
         return [
-            'id' => $payment->id,
-            'payment_date' => $payment->payment_date->toDateString(),
-            'amount' => $payment->amount,
-            'status' => $payment->status,
-            'order' => ['id' => $payment->order->id, 'order_number' => $payment->order->order_number],
+            'id'                 => $payment->id,
+            'payment_date'       => $payment->payment_date->toDateString(),
+            'amount'             => $payment->amount,
+            'status'             => $payment->status,
+            'order'              => ['id' => $payment->order->id, 'order_number' => $payment->order->order_number],
             'installment_number' => $payment->pautangInstallment?->installment_number,
         ];
     }
@@ -276,12 +274,12 @@ class CustomerController extends Controller
     private function pointsHistoryData(PointsLedger $entry): array
     {
         return [
-            'id' => $entry->id,
-            'type' => $entry->type,
-            'points' => $entry->points,
-            'description' => $entry->description,
-            'transaction_date' => $entry->transaction_date->toDateString(),
-            'order' => $entry->order ? ['id' => $entry->order->id, 'order_number' => $entry->order->order_number] : null,
+            'id'                 => $entry->id,
+            'type'               => $entry->type,
+            'points'             => $entry->points,
+            'description'        => $entry->description,
+            'transaction_date'   => $entry->transaction_date->toDateString(),
+            'order'              => $entry->order ? ['id' => $entry->order->id, 'order_number' => $entry->order->order_number] : null,
             'installment_number' => $entry->pautangInstallment?->installment_number,
         ];
     }

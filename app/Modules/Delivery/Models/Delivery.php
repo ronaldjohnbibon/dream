@@ -25,9 +25,20 @@ class Delivery extends Model
     }
 
     /** @return BelongsTo<Order, $this> */
-    public function order(): BelongsTo { return $this->belongsTo(Order::class); }
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
     /** @return BelongsTo<User, $this> */
-    public function customer(): BelongsTo { return $this->belongsTo(User::class); }
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
     /** @return BelongsTo<DeliveryArea, $this> */
-    public function deliveryArea(): BelongsTo { return $this->belongsTo(DeliveryArea::class); }
+    public function deliveryArea(): BelongsTo
+    {
+        return $this->belongsTo(DeliveryArea::class);
+    }
 }

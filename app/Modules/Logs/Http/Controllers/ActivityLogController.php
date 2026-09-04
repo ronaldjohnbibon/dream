@@ -42,7 +42,7 @@ class ActivityLogController extends Controller
             ->through(fn (ActivityLog $log) => $this->logData($log));
 
         return Inertia::render('modules/logs/Index', [
-            'logs' => $logs,
+            'logs'    => $logs,
             'filters' => compact('search', 'module', 'action'),
             'modules' => ActivityLog::MODULES,
             'actions' => ActivityLog::ACTIONS,
@@ -53,26 +53,26 @@ class ActivityLogController extends Controller
     private function logData(ActivityLog $log): array
     {
         return [
-            'id' => $log->id,
-            'user_name' => $log->user?->name ?? 'Deleted user',
-            'module' => $log->module,
-            'action' => $log->action,
+            'id'             => $log->id,
+            'user_name'      => $log->user?->name ?? 'Deleted user',
+            'module'         => $log->module,
+            'action'         => $log->action,
             'related_record' => $this->relatedRecord($log),
-            'description' => $log->description,
-            'created_at' => $log->created_at->toISOString(),
+            'description'    => $log->description,
+            'created_at'     => $log->created_at->toISOString(),
         ];
     }
 
     private function relatedRecord(ActivityLog $log): string
     {
         return match ($log->related_type) {
-            Order::class => "Order #{$log->related_id}",
-            GcashPayment::class => "GCash payment #{$log->related_id}",
-            PointsLedger::class => "Points ledger #{$log->related_id}",
-            User::class => "Customer #{$log->related_id}",
+            Order::class         => "Order #{$log->related_id}",
+            GcashPayment::class  => "GCash payment #{$log->related_id}",
+            PointsLedger::class  => "Points ledger #{$log->related_id}",
+            User::class          => "Customer #{$log->related_id}",
             StockMovement::class => "Stock movement #{$log->related_id}",
             SystemSetting::class => 'System settings',
-            default => "Record #{$log->related_id}",
+            default              => "Record #{$log->related_id}",
         };
     }
 }

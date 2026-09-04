@@ -19,23 +19,21 @@ use Inertia\Response;
 
 class RiceProductController extends Controller
 {
-    public function __construct(private readonly ActivityLogger $activityLogs)
-    {
-    }
+    public function __construct(private readonly ActivityLogger $activityLogs) {}
 
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', RiceProduct::class);
 
         $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:100'],
-            'status' => ['nullable', 'in:all,active,inactive'],
+            'search'    => ['nullable', 'string', 'max:100'],
+            'status'    => ['nullable', 'in:all,active,inactive'],
             'low_stock' => ['nullable', 'in:0,1'],
         ]);
 
-        $search = $filters['search'] ?? '';
-        $status = $filters['status'] ?? 'all';
-        $lowStock = ($filters['low_stock'] ?? '0') === '1';
+        $search            = $filters['search'] ?? '';
+        $status            = $filters['status'] ?? 'all';
+        $lowStock          = ($filters['low_stock'] ?? '0') === '1';
         $lowStockThreshold = SystemSetting::current()->low_stock_threshold;
 
         $products = RiceProduct::query()
@@ -54,9 +52,9 @@ class RiceProductController extends Controller
 
         return Inertia::render('modules/inventory/Index', [
             'products' => $products,
-            'filters' => [
-                'search' => $search,
-                'status' => $status,
+            'filters'  => [
+                'search'    => $search,
+                'status'    => $status,
                 'low_stock' => $lowStock,
             ],
             'lowStockThreshold' => $lowStockThreshold,
@@ -72,26 +70,26 @@ class RiceProductController extends Controller
 
     public function store(StoreRiceProductRequest $request): RedirectResponse
     {
-        $attributes = $request->validated();
+        $attributes   = $request->validated();
         $initialStock = $attributes['initial_stock'];
         unset($attributes['initial_stock']);
 
         $product = DB::transaction(function () use ($attributes, $initialStock, $request): RiceProduct {
             $product = RiceProduct::create([
                 ...$attributes,
-                'sack_size' => RiceProduct::SACK_SIZE,
+                'sack_size'       => RiceProduct::SACK_SIZE,
                 'available_stock' => $initialStock,
-                'reserved_stock' => 0,
-                'is_active' => true,
+                'reserved_stock'  => 0,
+                'is_active'       => true,
             ]);
 
             if ($initialStock > 0) {
                 $product->stockMovements()->create([
-                    'quantity' => $initialStock,
-                    'type' => 'stock_in',
+                    'quantity'       => $initialStock,
+                    'type'           => 'stock_in',
                     'previous_stock' => 0,
-                    'new_stock' => $initialStock,
-                    'user_id' => $request->user()->id,
+                    'new_stock'      => $initialStock,
+                    'user_id'        => $request->user()->id,
                 ]);
             }
 
@@ -113,7 +111,7 @@ class RiceProductController extends Controller
             ->map(fn (StockMovement $movement) => $this->movementData($movement));
 
         return Inertia::render('modules/inventory/Show', [
-            'product' => $this->riceProductData($riceProduct),
+            'product'         => $this->riceProductData($riceProduct),
             'recentMovements' => $recentMovements,
         ]);
     }
@@ -157,9 +155,9 @@ class RiceProductController extends Controller
         $attributes = $request->validated();
 
         DB::transaction(function () use ($attributes, $riceProduct, $request): void {
-            $product = RiceProduct::query()->lockForUpdate()->findOrFail($riceProduct->id);
+            $product       = RiceProduct::query()->lockForUpdate()->findOrFail($riceProduct->id);
             $previousStock = $product->available_stock;
-            $newStock = $previousStock + $this->stockChange($attributes);
+            $newStock      = $previousStock + $this->stockChange($attributes);
 
             if ($newStock < 0) {
                 throw ValidationException::withMessages([
@@ -169,13 +167,13 @@ class RiceProductController extends Controller
 
             $product->update(['available_stock' => $newStock]);
             $movement = $product->stockMovements()->create([
-                'quantity' => $attributes['quantity'],
-                'type' => $attributes['type'],
+                'quantity'       => $attributes['quantity'],
+                'type'           => $attributes['type'],
                 'previous_stock' => $previousStock,
-                'new_stock' => $newStock,
-                'order_id' => $attributes['order_id'] ?? null,
-                'notes' => $attributes['notes'] ?? null,
-                'user_id' => $request->user()->id,
+                'new_stock'      => $newStock,
+                'order_id'       => $attributes['order_id'] ?? null,
+                'notes'          => $attributes['notes']    ?? null,
+                'user_id'        => $request->user()->id,
             ]);
             $movementType = str_replace('_', ' ', $attributes['type']);
             $this->activityLogs->record(
@@ -197,8 +195,8 @@ class RiceProductController extends Controller
 
         return match ($attributes['type']) {
             'stock_in', 'cancellation', 'returned' => $quantity,
-            'order', 'damaged' => -$quantity,
-            'adjustment' => $attributes['adjustment_direction'] === 'increase' ? $quantity : -$quantity,
+            'order', 'damaged'                     => -$quantity,
+            'adjustment'                           => $attributes['adjustment_direction'] === 'increase' ? $quantity : -$quantity,
         };
     }
 
@@ -206,18 +204,18 @@ class RiceProductController extends Controller
     private function riceProductData(RiceProduct $product): array
     {
         return [
-            'id' => $product->id,
-            'name' => $product->name,
-            'brand' => $product->brand,
-            'description' => $product->description,
-            'sack_size' => $product->sack_size,
-            'cost_price' => $product->cost_price,
-            'selling_price' => $product->selling_price,
+            'id'              => $product->id,
+            'name'            => $product->name,
+            'brand'           => $product->brand,
+            'description'     => $product->description,
+            'sack_size'       => $product->sack_size,
+            'cost_price'      => $product->cost_price,
+            'selling_price'   => $product->selling_price,
             'available_stock' => $product->available_stock,
-            'reserved_stock' => $product->reserved_stock,
-            'is_active' => $product->is_active,
-            'created_at' => $product->created_at->toISOString(),
-            'updated_at' => $product->updated_at->toISOString(),
+            'reserved_stock'  => $product->reserved_stock,
+            'is_active'       => $product->is_active,
+            'created_at'      => $product->created_at->toISOString(),
+            'updated_at'      => $product->updated_at->toISOString(),
         ];
     }
 
@@ -225,15 +223,15 @@ class RiceProductController extends Controller
     private function movementData(StockMovement $movement): array
     {
         return [
-            'id' => $movement->id,
-            'quantity' => $movement->quantity,
-            'type' => $movement->type,
+            'id'             => $movement->id,
+            'quantity'       => $movement->quantity,
+            'type'           => $movement->type,
             'previous_stock' => $movement->previous_stock,
-            'new_stock' => $movement->new_stock,
-            'order_id' => $movement->order_id,
-            'notes' => $movement->notes,
-            'user_name' => $movement->user?->name ?? 'Deleted user',
-            'created_at' => $movement->created_at->toISOString(),
+            'new_stock'      => $movement->new_stock,
+            'order_id'       => $movement->order_id,
+            'notes'          => $movement->notes,
+            'user_name'      => $movement->user?->name ?? 'Deleted user',
+            'created_at'     => $movement->created_at->toISOString(),
         ];
     }
 }

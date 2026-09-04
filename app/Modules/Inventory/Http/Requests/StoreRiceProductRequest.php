@@ -16,10 +16,10 @@ class StoreRiceProductRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
-            'brand' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string', 'max:2000'],
-            'cost_price' => ['required', 'numeric', 'min:0'],
+            'name'          => ['required', 'string', 'max:255'],
+            'brand'         => ['required', 'string', 'max:255'],
+            'description'   => ['nullable', 'string', 'max:2000'],
+            'cost_price'    => ['required', 'numeric', 'min:0'],
             'selling_price' => ['required', 'numeric', 'min:0'],
             'initial_stock' => ['required', 'integer', 'min:0'],
         ];

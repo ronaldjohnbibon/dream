@@ -26,9 +26,9 @@ class PautangController extends Controller
                 ->first();
 
             return Inertia::render('modules/pautang/Index', [
-                'canManage' => false,
-                'view' => 'active',
-                'pautang' => $pautang ? $this->pautangData($pautang) : null,
+                'canManage'     => false,
+                'view'          => 'active',
+                'pautang'       => $pautang ? $this->pautangData($pautang) : null,
                 'pautangOrders' => null,
             ]);
         }
@@ -36,7 +36,7 @@ class PautangController extends Controller
         $filters = $request->validate([
             'view' => ['nullable', 'in:active,paid,overdue'],
         ]);
-        $view = $filters['view'] ?? 'active';
+        $view          = $filters['view'] ?? 'active';
         $overdueCutoff = today()->subDays(SystemSetting::current()->pautang_grace_period_days)->toDateString();
 
         $orders = Order::query()
@@ -58,9 +58,9 @@ class PautangController extends Controller
             ->through(fn (Order $order) => $this->pautangData($order));
 
         return Inertia::render('modules/pautang/Index', [
-            'canManage' => true,
-            'view' => $view,
-            'pautang' => null,
+            'canManage'     => true,
+            'view'          => $view,
+            'pautang'       => null,
             'pautangOrders' => $orders,
         ]);
     }
@@ -68,36 +68,36 @@ class PautangController extends Controller
     /** @return array<string, mixed> */
     private function pautangData(Order $order): array
     {
-        $installments = $order->pautangInstallments;
-        $unpaidInstallments = $installments->filter(fn (PautangInstallment $installment) => (float) $installment->remaining_balance > 0);
-        $gracePeriod = SystemSetting::current()->pautang_grace_period_days;
+        $installments        = $order->pautangInstallments;
+        $unpaidInstallments  = $installments->filter(fn (PautangInstallment $installment) => (float) $installment->remaining_balance > 0);
+        $gracePeriod         = SystemSetting::current()->pautang_grace_period_days;
         $overdueInstallments = $unpaidInstallments->filter(fn (PautangInstallment $installment) => $installment->due_date->copy()->addDays($gracePeriod)->isBefore(today()));
-        $nextDueDate = $unpaidInstallments->sortBy('due_date')->first()?->due_date;
-        $oldestOverdueDate = $overdueInstallments->sortBy('due_date')->first()?->due_date;
+        $nextDueDate         = $unpaidInstallments->sortBy('due_date')->first()?->due_date;
+        $oldestOverdueDate   = $overdueInstallments->sortBy('due_date')->first()?->due_date;
 
         return [
-            'id' => $order->id,
+            'id'           => $order->id,
             'order_number' => $order->order_number,
-            'customer' => $order->relationLoaded('customer') ? [
-                'id' => $order->customer->id,
-                'name' => $order->customer->name,
-                'email' => $order->customer->email,
+            'customer'     => $order->relationLoaded('customer') ? [
+                'id'            => $order->customer->id,
+                'name'          => $order->customer->name,
+                'email'         => $order->customer->email,
                 'mobile_number' => $order->customer->mobile_number,
             ] : null,
-            'order_amount' => $order->final_amount,
-            'amount_paid' => number_format((float) $installments->sum('amount_paid'), 2, '.', ''),
+            'order_amount'      => $order->final_amount,
+            'amount_paid'       => number_format((float) $installments->sum('amount_paid'), 2, '.', ''),
             'remaining_balance' => number_format((float) $installments->sum('remaining_balance'), 2, '.', ''),
-            'next_due_date' => $nextDueDate?->toDateString(),
-            'days_overdue' => $oldestOverdueDate ? $oldestOverdueDate->copy()->addDays($gracePeriod)->diffInDays(today()) : 0,
-            'installments' => $installments->map(fn (PautangInstallment $installment) => [
-                'id' => $installment->id,
+            'next_due_date'     => $nextDueDate?->toDateString(),
+            'days_overdue'      => $oldestOverdueDate ? $oldestOverdueDate->copy()->addDays($gracePeriod)->diffInDays(today()) : 0,
+            'installments'      => $installments->map(fn (PautangInstallment $installment) => [
+                'id'                 => $installment->id,
                 'installment_number' => $installment->installment_number,
-                'amount_due' => $installment->amount_due,
-                'due_date' => $installment->due_date->toDateString(),
-                'amount_paid' => $installment->amount_paid,
-                'remaining_balance' => $installment->remaining_balance,
-                'status' => $installment->currentStatus(),
-                'paid_date' => $installment->paid_date?->toDateString(),
+                'amount_due'         => $installment->amount_due,
+                'due_date'           => $installment->due_date->toDateString(),
+                'amount_paid'        => $installment->amount_paid,
+                'remaining_balance'  => $installment->remaining_balance,
+                'status'             => $installment->currentStatus(),
+                'paid_date'          => $installment->paid_date?->toDateString(),
             ])->values(),
         ];
     }

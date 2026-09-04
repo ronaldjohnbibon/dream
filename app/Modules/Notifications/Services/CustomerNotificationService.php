@@ -14,11 +14,11 @@ class CustomerNotificationService
     public function deliveryStatus(Order $order, string $status): void
     {
         [$type, $title, $message] = match ($status) {
-            'scheduled' => ['order_confirmed', 'Order confirmed', "Your order {$order->order_number} has been confirmed."],
-            'preparing' => ['order_preparing', 'Order is being prepared', "Your order {$order->order_number} is being prepared."],
+            'scheduled'        => ['order_confirmed', 'Order confirmed', "Your order {$order->order_number} has been confirmed."],
+            'preparing'        => ['order_preparing', 'Order is being prepared', "Your order {$order->order_number} is being prepared."],
             'out_for_delivery' => ['order_out_for_delivery', 'Order out for delivery', "Your order {$order->order_number} is out for delivery."],
-            'delivered' => ['order_delivered', 'Order delivered', "Your order {$order->order_number} has been delivered."],
-            default => [null, null, null],
+            'delivered'        => ['order_delivered', 'Order delivered', "Your order {$order->order_number} has been delivered."],
+            default            => [null, null, null],
         };
 
         if (! $type) {
@@ -26,10 +26,10 @@ class CustomerNotificationService
         }
 
         $this->send($this->customer($order), [
-            'event_key' => "{$type}:{$order->id}",
-            'type' => $type,
-            'title' => $title,
-            'message' => $message,
+            'event_key'  => "{$type}:{$order->id}",
+            'type'       => $type,
+            'title'      => $title,
+            'message'    => $message,
             'action_url' => route('orders.show', $order),
         ]);
     }
@@ -57,14 +57,14 @@ class CustomerNotificationService
 
     public function pointsEarned(PointsLedger $ledger): void
     {
-        $order = $ledger->order;
+        $order     = $ledger->order;
         $orderText = $order ? " for order {$order->order_number}" : '';
 
         $this->send(User::query()->findOrFail($ledger->customer_id), [
-            'event_key' => "points_earned:{$ledger->id}",
-            'type' => 'points_earned',
-            'title' => 'Points earned',
-            'message' => "You earned {$ledger->points} points{$orderText}.",
+            'event_key'  => "points_earned:{$ledger->id}",
+            'type'       => 'points_earned',
+            'title'      => 'Points earned',
+            'message'    => "You earned {$ledger->points} points{$orderText}.",
             'action_url' => route('points.show'),
         ]);
     }
@@ -72,10 +72,10 @@ class CustomerNotificationService
     public function pointsRedeemed(Order $order, int $points): void
     {
         $this->send($this->customer($order), [
-            'event_key' => "points_redeemed:{$order->id}",
-            'type' => 'points_redeemed',
-            'title' => 'Points redeemed',
-            'message' => "You redeemed {$points} points on order {$order->order_number}.",
+            'event_key'  => "points_redeemed:{$order->id}",
+            'type'       => 'points_redeemed',
+            'title'      => 'Points redeemed',
+            'message'    => "You redeemed {$points} points on order {$order->order_number}.",
             'action_url' => route('points.show'),
         ]);
     }
@@ -85,10 +85,10 @@ class CustomerNotificationService
         $customer = $this->customer($order);
 
         $this->sendToAdministrators([
-            'event_key' => "admin_new_order:{$order->id}",
-            'type' => 'admin_new_order',
-            'title' => 'New order placed',
-            'message' => "{$customer->name} placed order {$order->order_number}.",
+            'event_key'  => "admin_new_order:{$order->id}",
+            'type'       => 'admin_new_order',
+            'title'      => 'New order placed',
+            'message'    => "{$customer->name} placed order {$order->order_number}.",
             'action_url' => route('orders.show', $order),
         ]);
     }
@@ -98,10 +98,10 @@ class CustomerNotificationService
         $order = $installment->order;
 
         return $this->sendOnce($this->customer($order), [
-            'event_key' => "installment_upcoming:{$installment->id}:{$installment->due_date->toDateString()}",
-            'type' => 'installment_upcoming',
-            'title' => 'Upcoming installment due date',
-            'message' => "Installment {$installment->installment_number} for order {$order->order_number} is due on {$installment->due_date->format('M j, Y')}.",
+            'event_key'  => "installment_upcoming:{$installment->id}:{$installment->due_date->toDateString()}",
+            'type'       => 'installment_upcoming',
+            'title'      => 'Upcoming installment due date',
+            'message'    => "Installment {$installment->installment_number} for order {$order->order_number} is due on {$installment->due_date->format('M j, Y')}.",
             'action_url' => route('orders.show', $order),
         ]);
     }
@@ -111,10 +111,10 @@ class CustomerNotificationService
         $order = $installment->order;
 
         $this->sendToAdministrators([
-            'event_key' => "admin_installment_upcoming:{$installment->id}:{$installment->due_date->toDateString()}",
-            'type' => 'admin_installment_upcoming',
-            'title' => 'Upcoming installment due date',
-            'message' => "Installment {$installment->installment_number} for order {$order->order_number} is due on {$installment->due_date->format('M j, Y')}.",
+            'event_key'  => "admin_installment_upcoming:{$installment->id}:{$installment->due_date->toDateString()}",
+            'type'       => 'admin_installment_upcoming',
+            'title'      => 'Upcoming installment due date',
+            'message'    => "Installment {$installment->installment_number} for order {$order->order_number} is due on {$installment->due_date->format('M j, Y')}.",
             'action_url' => route('pautang.index'),
         ]);
     }
@@ -124,10 +124,10 @@ class CustomerNotificationService
         $order = $installment->order;
 
         return $this->sendOnce($this->customer($order), [
-            'event_key' => "installment_overdue:{$installment->id}:{$installment->due_date->toDateString()}",
-            'type' => 'installment_overdue',
-            'title' => 'Installment overdue',
-            'message' => "Installment {$installment->installment_number} for order {$order->order_number} is overdue. Please submit your payment.",
+            'event_key'  => "installment_overdue:{$installment->id}:{$installment->due_date->toDateString()}",
+            'type'       => 'installment_overdue',
+            'title'      => 'Installment overdue',
+            'message'    => "Installment {$installment->installment_number} for order {$order->order_number} is overdue. Please submit your payment.",
             'action_url' => route('orders.show', $order),
         ]);
     }
@@ -137,10 +137,10 @@ class CustomerNotificationService
         $order = $installment->order;
 
         $this->sendToAdministrators([
-            'event_key' => "admin_installment_overdue:{$installment->id}:{$installment->due_date->toDateString()}",
-            'type' => 'admin_installment_overdue',
-            'title' => 'Installment overdue',
-            'message' => "Installment {$installment->installment_number} for order {$order->order_number} is overdue.",
+            'event_key'  => "admin_installment_overdue:{$installment->id}:{$installment->due_date->toDateString()}",
+            'type'       => 'admin_installment_overdue',
+            'title'      => 'Installment overdue',
+            'message'    => "Installment {$installment->installment_number} for order {$order->order_number} is overdue.",
             'action_url' => route('pautang.index', ['view' => 'overdue']),
         ]);
     }
@@ -148,10 +148,10 @@ class CustomerNotificationService
     private function paymentStatus(GcashPayment $payment, string $type, string $title, string $message): void
     {
         $this->send($payment->customer, [
-            'event_key' => "{$type}:{$payment->id}",
-            'type' => $type,
-            'title' => $title,
-            'message' => $message,
+            'event_key'  => "{$type}:{$payment->id}",
+            'type'       => $type,
+            'title'      => $title,
+            'message'    => $message,
             'action_url' => route('orders.show', $payment->order),
         ]);
     }
@@ -159,10 +159,10 @@ class CustomerNotificationService
     private function administratorsPaymentSubmitted(GcashPayment $payment): void
     {
         $this->sendToAdministrators([
-            'event_key' => "admin_payment_submitted:{$payment->id}",
-            'type' => 'admin_payment_submitted',
-            'title' => 'New payment submitted',
-            'message' => "{$payment->customer->name} submitted a GCash payment for order {$payment->order->order_number}.",
+            'event_key'  => "admin_payment_submitted:{$payment->id}",
+            'type'       => 'admin_payment_submitted',
+            'title'      => 'New payment submitted',
+            'message'    => "{$payment->customer->name} submitted a GCash payment for order {$payment->order->order_number}.",
             'action_url' => route('gcash-payments.show', $payment),
         ]);
     }

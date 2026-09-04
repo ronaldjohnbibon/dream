@@ -30,12 +30,12 @@ class RiceProduct extends Model
     protected function casts(): array
     {
         return [
-            'sack_size' => 'decimal:2',
-            'cost_price' => 'decimal:2',
-            'selling_price' => 'decimal:2',
+            'sack_size'       => 'decimal:2',
+            'cost_price'      => 'decimal:2',
+            'selling_price'   => 'decimal:2',
             'available_stock' => 'integer',
-            'reserved_stock' => 'integer',
-            'is_active' => 'boolean',
+            'reserved_stock'  => 'integer',
+            'is_active'       => 'boolean',
         ];
     }
 

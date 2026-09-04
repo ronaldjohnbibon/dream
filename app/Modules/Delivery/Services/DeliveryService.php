@@ -30,8 +30,8 @@ class DeliveryService
 
         $updatedDelivery = DB::transaction(function () use ($delivery, $attributes, $admin, &$notificationData): Delivery {
             $lockedDelivery = Delivery::query()->lockForUpdate()->findOrFail($delivery->id);
-            $order = Order::query()->lockForUpdate()->findOrFail($lockedDelivery->order_id);
-            $nextStatus = $attributes['status'];
+            $order          = Order::query()->lockForUpdate()->findOrFail($lockedDelivery->order_id);
+            $nextStatus     = $attributes['status'];
 
             if (! in_array($nextStatus, $this->allowedStatuses($lockedDelivery), true)) {
                 throw ValidationException::withMessages(['status' => 'This delivery status change is not allowed.']);
@@ -42,10 +42,10 @@ class DeliveryService
                 throw ValidationException::withMessages(['delivery_area_id' => 'Choose an active delivery area.']);
             }
 
-            $isScheduled = $nextStatus === 'scheduled' && $lockedDelivery->status !== 'scheduled';
-            $isDelivered = $nextStatus === 'delivered' && $lockedDelivery->status !== 'delivered';
-            $isCancelled = $nextStatus === 'cancelled' && $lockedDelivery->status !== 'cancelled';
-            $isStatusChange = $nextStatus !== $lockedDelivery->status;
+            $isScheduled    = $nextStatus === 'scheduled' && $lockedDelivery->status !== 'scheduled';
+            $isDelivered    = $nextStatus === 'delivered' && $lockedDelivery->status !== 'delivered';
+            $isCancelled    = $nextStatus === 'cancelled' && $lockedDelivery->status !== 'cancelled';
+            $isStatusChange = $nextStatus                                            !== $lockedDelivery->status;
 
             if ($isCancelled) {
                 $hasPayments = $order->gcashPayments()->exists()
@@ -55,8 +55,8 @@ class DeliveryService
                 }
             }
 
-            $newFee = $this->pricing->feeFor($area);
-            $oldFee = (float) $lockedDelivery->delivery_fee;
+            $newFee              = $this->pricing->feeFor($area);
+            $oldFee              = (float) $lockedDelivery->delivery_fee;
             $hasCommittedBalance = $order->gcashPayments()->exists() || $order->pautangInstallments()->exists();
             if ($newFee !== $oldFee && $hasCommittedBalance) {
                 throw ValidationException::withMessages(['delivery_area_id' => 'The delivery area cannot change after payment activity or pautang scheduling.']);
@@ -64,10 +64,10 @@ class DeliveryService
             if ($newFee !== $oldFee) {
                 $finalAmount = max(0, round((float) $order->final_amount - $oldFee + $newFee, 2));
                 $order->update([
-                    'delivery_fee' => number_format($newFee, 2, '.', ''),
-                    'final_amount' => number_format($finalAmount, 2, '.', ''),
+                    'delivery_fee'      => number_format($newFee, 2, '.', ''),
+                    'final_amount'      => number_format($finalAmount, 2, '.', ''),
                     'remaining_balance' => number_format($finalAmount, 2, '.', ''),
-                    'payment_status' => $finalAmount <= 0 ? 'paid' : 'unpaid',
+                    'payment_status'    => $finalAmount <= 0 ? 'paid' : 'unpaid',
                 ]);
             }
 
@@ -76,17 +76,17 @@ class DeliveryService
             }
 
             if ($isCancelled) {
-                $product = RiceProduct::query()->lockForUpdate()->findOrFail($order->rice_product_id);
+                $product       = RiceProduct::query()->lockForUpdate()->findOrFail($order->rice_product_id);
                 $previousStock = $product->available_stock;
-                $newStock = $previousStock + $order->quantity;
+                $newStock      = $previousStock + $order->quantity;
                 $product->update([
                     'available_stock' => $newStock,
-                    'reserved_stock' => max(0, $product->reserved_stock - $order->quantity),
+                    'reserved_stock'  => max(0, $product->reserved_stock - $order->quantity),
                 ]);
                 $product->stockMovements()->create([
-                    'quantity' => $order->quantity, 'type' => 'cancellation', 'previous_stock' => $previousStock,
+                    'quantity'  => $order->quantity, 'type' => 'cancellation', 'previous_stock' => $previousStock,
                     'new_stock' => $newStock, 'order_id' => $order->id,
-                    'notes' => "Order {$order->order_number} cancelled.", 'user_id' => $admin->id,
+                    'notes'     => "Order {$order->order_number} cancelled.", 'user_id' => $admin->id,
                 ]);
                 User::query()->lockForUpdate()->findOrFail($order->customer_id);
                 $this->points->refundOrderRedemption($order);
@@ -100,15 +100,15 @@ class DeliveryService
             }
 
             $deliveryData = [
-                'delivery_area_id' => $area->id,
+                'delivery_area_id'   => $area->id,
                 'delivery_area_name' => $area->name,
-                'delivery_address' => $attributes['delivery_address'],
-                'delivery_fee' => number_format($newFee, 2, '.', ''),
-                'delivery_date' => $attributes['delivery_date'] ?: null,
-                'delivery_person' => $attributes['delivery_person'] ?: null,
-                'status' => $nextStatus,
-                'notes' => $attributes['notes'] ?: null,
-                'delivered_date' => $isDelivered ? today() : $lockedDelivery->delivered_date,
+                'delivery_address'   => $attributes['delivery_address'],
+                'delivery_fee'       => number_format($newFee, 2, '.', ''),
+                'delivery_date'      => $attributes['delivery_date'] ?: null,
+                'delivery_person'    => $attributes['delivery_person'] ?: null,
+                'status'             => $nextStatus,
+                'notes'              => $attributes['notes'] ?: null,
+                'delivered_date'     => $isDelivered ? today() : $lockedDelivery->delivered_date,
             ];
             $lockedDelivery->update($deliveryData);
 
@@ -116,6 +116,7 @@ class DeliveryService
             if ($isStatusChange) {
                 $notificationData[] = ['status' => $nextStatus, 'order_id' => $order->id];
             }
+
             return $lockedDelivery->fresh(['order.riceProduct', 'customer', 'deliveryArea']);
         });
 
@@ -136,13 +137,13 @@ class DeliveryService
     public function allowedStatuses(Delivery $delivery): array
     {
         return match ($delivery->status) {
-            'pending' => ['pending', 'scheduled', 'cancelled'],
-            'scheduled' => ['scheduled', 'preparing', 'cancelled'],
-            'preparing' => ['preparing', 'out_for_delivery', 'cancelled'],
+            'pending'          => ['pending', 'scheduled', 'cancelled'],
+            'scheduled'        => ['scheduled', 'preparing', 'cancelled'],
+            'preparing'        => ['preparing', 'out_for_delivery', 'cancelled'],
             'out_for_delivery' => ['out_for_delivery', 'delivered', 'failed', 'cancelled'],
-            'failed' => ['failed', 'scheduled', 'cancelled'],
-            'delivered' => ['delivered'],
-            'cancelled' => ['cancelled'],
+            'failed'           => ['failed', 'scheduled', 'cancelled'],
+            'delivered'        => ['delivered'],
+            'cancelled'        => ['cancelled'],
         };
     }
 
@@ -156,20 +157,20 @@ class DeliveryService
 
     private function createPautangInstallments(Order $order): void
     {
-        $settings = SystemSetting::current();
+        $settings     = SystemSetting::current();
         $installments = $settings->pautang_installments;
-        $amounts = [];
-        $remaining = round((float) $order->final_amount, 2);
+        $amounts      = [];
+        $remaining    = round((float) $order->final_amount, 2);
         for ($number = 1; $number <= $installments; $number++) {
-            $amount = $number === $installments ? $remaining : round((float) $order->final_amount / $installments, 2);
+            $amount    = $number === $installments ? $remaining : round((float) $order->final_amount / $installments, 2);
             $remaining = round($remaining - $amount, 2);
             $amounts[] = [
                 'installment_number' => $number,
-                'amount_due' => number_format($amount, 2, '.', ''),
-                'due_date' => today()->addDays((int) floor(($settings->pautang_payment_term_days * $number) / $installments)),
-                'amount_paid' => '0.00',
-                'remaining_balance' => number_format($amount, 2, '.', ''),
-                'status' => 'pending',
+                'amount_due'         => number_format($amount, 2, '.', ''),
+                'due_date'           => today()->addDays((int) floor(($settings->pautang_payment_term_days * $number) / $installments)),
+                'amount_paid'        => '0.00',
+                'remaining_balance'  => number_format($amount, 2, '.', ''),
+                'status'             => 'pending',
             ];
         }
         $order->pautangInstallments()->createMany($amounts);

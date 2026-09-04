@@ -1,12 +1,12 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Modules\Delivery\Http\Controllers\DeliveryAreaController;
+use App\Modules\Delivery\Http\Controllers\DeliveryController;
 use App\Modules\Inventory\Http\Controllers\RiceProductController;
 use App\Modules\Inventory\Http\Controllers\StockMovementController;
 use App\Modules\Logs\Http\Controllers\ActivityLogController;
 use App\Modules\Notifications\Http\Controllers\NotificationController;
-use App\Modules\Delivery\Http\Controllers\DeliveryAreaController;
-use App\Modules\Delivery\Http\Controllers\DeliveryController;
 use App\Modules\Orders\Http\Controllers\GcashPaymentController;
 use App\Modules\Orders\Http\Controllers\OrderController;
 use App\Modules\Orders\Http\Controllers\PautangController;

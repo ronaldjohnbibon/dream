@@ -38,8 +38,8 @@ class PointsLedger extends Model
     protected function casts(): array
     {
         return [
-            'points' => 'integer',
-            'source_id' => 'integer',
+            'points'           => 'integer',
+            'source_id'        => 'integer',
             'transaction_date' => 'date',
         ];
     }

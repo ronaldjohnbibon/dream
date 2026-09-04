@@ -19,12 +19,12 @@ class StoreCustomerRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
-            'mobile_number' => ['required', 'string', 'max:30'],
+            'name'             => ['required', 'string', 'max:255'],
+            'email'            => ['nullable', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'mobile_number'    => ['required', 'string', 'max:30'],
             'complete_address' => ['required', 'string', 'max:2000'],
-            'delivery_area' => ['required', 'string', 'max:255'],
-            'password' => ['required', 'confirmed', Password::defaults()],
+            'delivery_area'    => ['required', 'string', 'max:255'],
+            'password'         => ['required', 'confirmed', Password::defaults()],
         ];
     }
 }

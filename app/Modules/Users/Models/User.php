@@ -2,9 +2,9 @@
 
 namespace App\Modules\Users\Models;
 
+use App\Modules\Delivery\Models\Delivery;
 use App\Modules\Orders\Models\GcashPayment;
 use App\Modules\Orders\Models\Order;
-use App\Modules\Delivery\Models\Delivery;
 use App\Modules\Points\Models\PointsLedger;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

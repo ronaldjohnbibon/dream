@@ -18,13 +18,13 @@ class UserController extends Controller
         $this->authorize('viewAny', User::class);
 
         $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:100'],
-            'sort' => ['nullable', 'in:name,email,created_at'],
+            'search'    => ['nullable', 'string', 'max:100'],
+            'sort'      => ['nullable', 'in:name,email,created_at'],
             'direction' => ['nullable', 'in:asc,desc'],
         ]);
 
-        $search = $filters['search'] ?? '';
-        $sort = $filters['sort'] ?? 'created_at';
+        $search    = $filters['search']    ?? '';
+        $sort      = $filters['sort']      ?? 'created_at';
         $direction = $filters['direction'] ?? 'desc';
 
         $users = User::query()->where('is_admin', true)
@@ -37,10 +37,10 @@ class UserController extends Controller
             ->through(fn (User $user) => $this->userData($user));
 
         return Inertia::render('modules/users/Index', [
-            'users' => $users,
+            'users'   => $users,
             'filters' => [
-                'search' => $search,
-                'sort' => $sort,
+                'search'    => $search,
+                'sort'      => $sort,
                 'direction' => $direction,
             ],
         ]);
@@ -114,10 +114,10 @@ class UserController extends Controller
     private function userData(User $user): array
     {
         return [
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'is_admin' => $user->is_admin,
+            'id'         => $user->id,
+            'name'       => $user->name,
+            'email'      => $user->email,
+            'is_admin'   => $user->is_admin,
             'created_at' => $user->created_at->toISOString(),
             'updated_at' => $user->updated_at->toISOString(),
         ];

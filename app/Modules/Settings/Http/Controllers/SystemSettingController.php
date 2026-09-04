@@ -18,43 +18,41 @@ use Inertia\Response;
 
 class SystemSettingController extends Controller
 {
-    public function __construct(private readonly PointsService $points, private readonly ActivityLogger $activityLogs)
-    {
-    }
+    public function __construct(private readonly PointsService $points, private readonly ActivityLogger $activityLogs) {}
 
     public function edit(Request $request): Response
     {
         abort_unless($request->user()?->is_admin, 403);
 
-        $system = SystemSetting::current();
-        $gcash = GcashSetting::query()->find(1);
-        $points = $this->points->settings();
-        $deliveryAreas = DeliveryArea::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'delivery_fee']);
+        $system              = SystemSetting::current();
+        $gcash               = GcashSetting::query()->find(1);
+        $points              = $this->points->settings();
+        $deliveryAreas       = DeliveryArea::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'delivery_fee']);
         $freeDeliveryAreaIds = $deliveryAreas->pluck('id')->intersect($system->free_delivery_area_ids ?? [])->values()->all();
 
         return Inertia::render('modules/settings/System', [
             'settings' => [
-                'business_name' => $system->business_name,
-                'logo_url' => $system->logo_path ? Storage::disk('public')->url($system->logo_path) : null,
-                'contact_number' => $system->contact_number,
-                'address' => $system->address,
-                'gcash_account_name' => $gcash?->account_name,
-                'gcash_account_number' => $gcash?->account_number,
-                'gcash_qr_code_url' => $gcash?->qr_code_path ? Storage::disk('public')->url($gcash->qr_code_path) : null,
-                'pautang_enabled' => $system->pautang_enabled,
-                'pautang_installments' => $system->pautang_installments,
+                'business_name'             => $system->business_name,
+                'logo_url'                  => $system->logo_path ? Storage::disk('public')->url($system->logo_path) : null,
+                'contact_number'            => $system->contact_number,
+                'address'                   => $system->address,
+                'gcash_account_name'        => $gcash?->account_name,
+                'gcash_account_number'      => $gcash?->account_number,
+                'gcash_qr_code_url'         => $gcash?->qr_code_path ? Storage::disk('public')->url($gcash->qr_code_path) : null,
+                'pautang_enabled'           => $system->pautang_enabled,
+                'pautang_installments'      => $system->pautang_installments,
                 'pautang_payment_term_days' => $system->pautang_payment_term_days,
-                'pautang_max_active' => $system->pautang_max_active,
-                'pautang_max_sacks' => $system->pautang_max_sacks,
+                'pautang_max_active'        => $system->pautang_max_active,
+                'pautang_max_sacks'         => $system->pautang_max_sacks,
                 'pautang_grace_period_days' => $system->pautang_grace_period_days,
-                'points_enabled' => $points->is_enabled,
-                'completed_order_points' => $points->completed_order_points,
-                'on_time_payment_points' => $points->on_time_payment_points,
-                'peso_per_point' => $points->peso_per_point,
-                'minimum_redemption' => $points->minimum_redemption,
-                'maximum_points_usable' => $points->maximum_points_usable,
-                'free_delivery_area_ids' => $freeDeliveryAreaIds,
-                'low_stock_threshold' => $system->low_stock_threshold,
+                'points_enabled'            => $points->is_enabled,
+                'completed_order_points'    => $points->completed_order_points,
+                'on_time_payment_points'    => $points->on_time_payment_points,
+                'peso_per_point'            => $points->peso_per_point,
+                'minimum_redemption'        => $points->minimum_redemption,
+                'maximum_points_usable'     => $points->maximum_points_usable,
+                'free_delivery_area_ids'    => $freeDeliveryAreaIds,
+                'low_stock_threshold'       => $system->low_stock_threshold,
             ],
             'deliveryAreas' => $deliveryAreas,
         ]);
@@ -62,44 +60,44 @@ class SystemSettingController extends Controller
 
     public function update(UpdateSystemSettingRequest $request): RedirectResponse
     {
-        $attributes = $request->validated();
-        $system = SystemSetting::current();
-        $gcash = GcashSetting::query()->findOrNew(1);
-        $gcash->id = 1;
-        $oldLogoPath = $system->logo_path;
-        $oldQrPath = $gcash->qr_code_path;
-        $newLogoPath = $request->file('logo')?->store('business-logos', 'public');
-        $newQrPath = $request->file('gcash_qr_code')?->store('gcash-qr', 'public');
+        $attributes    = $request->validated();
+        $system        = SystemSetting::current();
+        $gcash         = GcashSetting::query()->findOrNew(1);
+        $gcash->id     = 1;
+        $oldLogoPath   = $system->logo_path;
+        $oldQrPath     = $gcash->qr_code_path;
+        $newLogoPath   = $request->file('logo')?->store('business-logos', 'public');
+        $newQrPath     = $request->file('gcash_qr_code')?->store('gcash-qr', 'public');
         $changedFields = $this->changedFields($system, $gcash, $attributes, $newLogoPath, $newQrPath);
 
         try {
             DB::transaction(function () use ($system, $gcash, $attributes, $newLogoPath, $newQrPath, $changedFields, $request): void {
                 $system->update([
-                    'business_name' => trim($attributes['business_name']),
-                    'logo_path' => $newLogoPath ?? $system->logo_path,
-                    'contact_number' => $attributes['contact_number'] ? trim($attributes['contact_number']) : null,
-                    'address' => $attributes['address'] ? trim($attributes['address']) : null,
-                    'pautang_enabled' => $attributes['pautang_enabled'],
-                    'pautang_installments' => $attributes['pautang_installments'],
+                    'business_name'             => trim($attributes['business_name']),
+                    'logo_path'                 => $newLogoPath ?? $system->logo_path,
+                    'contact_number'            => $attributes['contact_number'] ? trim($attributes['contact_number']) : null,
+                    'address'                   => $attributes['address'] ? trim($attributes['address']) : null,
+                    'pautang_enabled'           => $attributes['pautang_enabled'],
+                    'pautang_installments'      => $attributes['pautang_installments'],
                     'pautang_payment_term_days' => $attributes['pautang_payment_term_days'],
-                    'pautang_max_active' => $attributes['pautang_max_active'],
-                    'pautang_max_sacks' => $attributes['pautang_max_sacks'],
+                    'pautang_max_active'        => $attributes['pautang_max_active'],
+                    'pautang_max_sacks'         => $attributes['pautang_max_sacks'],
                     'pautang_grace_period_days' => $attributes['pautang_grace_period_days'],
-                    'free_delivery_area_ids' => array_values(array_map('intval', $attributes['free_delivery_area_ids'] ?? [])),
-                    'low_stock_threshold' => $attributes['low_stock_threshold'],
+                    'free_delivery_area_ids'    => array_values(array_map('intval', $attributes['free_delivery_area_ids'] ?? [])),
+                    'low_stock_threshold'       => $attributes['low_stock_threshold'],
                 ]);
                 $gcash->fill([
-                    'account_name' => $attributes['gcash_account_name'] ? trim($attributes['gcash_account_name']) : null,
+                    'account_name'   => $attributes['gcash_account_name'] ? trim($attributes['gcash_account_name']) : null,
                     'account_number' => $attributes['gcash_account_number'] ? trim($attributes['gcash_account_number']) : null,
-                    'qr_code_path' => $newQrPath ?? $gcash->qr_code_path,
+                    'qr_code_path'   => $newQrPath ?? $gcash->qr_code_path,
                 ])->save();
                 $this->points->settings()->update([
-                    'is_enabled' => $attributes['points_enabled'],
+                    'is_enabled'             => $attributes['points_enabled'],
                     'completed_order_points' => $attributes['completed_order_points'],
                     'on_time_payment_points' => $attributes['on_time_payment_points'],
-                    'peso_per_point' => $attributes['peso_per_point'],
-                    'minimum_redemption' => $attributes['minimum_redemption'],
-                    'maximum_points_usable' => $attributes['maximum_points_usable'],
+                    'peso_per_point'         => $attributes['peso_per_point'],
+                    'minimum_redemption'     => $attributes['minimum_redemption'],
+                    'maximum_points_usable'  => $attributes['maximum_points_usable'],
                 ]);
                 if ($changedFields !== []) {
                     $this->activityLogs->record(
@@ -112,25 +110,33 @@ class SystemSettingController extends Controller
                 }
             });
         } catch (\Throwable $exception) {
-            if ($newLogoPath) Storage::disk('public')->delete($newLogoPath);
-            if ($newQrPath) Storage::disk('public')->delete($newQrPath);
+            if ($newLogoPath) {
+                Storage::disk('public')->delete($newLogoPath);
+            }
+            if ($newQrPath) {
+                Storage::disk('public')->delete($newQrPath);
+            }
             throw $exception;
         }
 
-        if ($newLogoPath && $oldLogoPath) Storage::disk('public')->delete($oldLogoPath);
-        if ($newQrPath && $oldQrPath) Storage::disk('public')->delete($oldQrPath);
+        if ($newLogoPath && $oldLogoPath) {
+            Storage::disk('public')->delete($oldLogoPath);
+        }
+        if ($newQrPath && $oldQrPath) {
+            Storage::disk('public')->delete($oldQrPath);
+        }
 
         return to_route('system-settings.edit')->with('success', 'System settings updated successfully.');
     }
 
     /** @param array<string, mixed> $attributes
-     *  @return list<string>
+     * @return list<string>
      */
     private function changedFields(SystemSetting $system, GcashSetting $gcash, array $attributes, ?string $newLogoPath, ?string $newQrPath): array
     {
-        $points = $this->points->settings();
+        $points  = $this->points->settings();
         $changes = [];
-        $add = function (string $label, mixed $before, mixed $after) use (&$changes): void {
+        $add     = function (string $label, mixed $before, mixed $after) use (&$changes): void {
             if ($before !== $after) {
                 $changes[] = $label;
             }

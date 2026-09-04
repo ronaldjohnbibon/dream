@@ -12,12 +12,12 @@ class NotificationData
         $data = $notification->data;
 
         return [
-            'id' => $notification->id,
-            'type' => $data['type'] ?? 'notification',
-            'title' => $data['title'] ?? 'Notification',
-            'message' => $data['message'] ?? '',
+            'id'         => $notification->id,
+            'type'       => $data['type']       ?? 'notification',
+            'title'      => $data['title']      ?? 'Notification',
+            'message'    => $data['message']    ?? '',
             'action_url' => $data['action_url'] ?? null,
-            'read_at' => $notification->read_at?->toISOString(),
+            'read_at'    => $notification->read_at?->toISOString(),
             'created_at' => $notification->created_at->toISOString(),
         ];
     }

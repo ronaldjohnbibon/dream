@@ -3,10 +3,10 @@
 namespace App\Modules\Points\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Logs\Services\ActivityLogger;
 use App\Modules\Points\Http\Requests\AdjustPointsRequest;
 use App\Modules\Points\Models\PointsLedger;
 use App\Modules\Points\Services\PointsService;
-use App\Modules\Logs\Services\ActivityLogger;
 use App\Modules\Users\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,9 +17,7 @@ use Inertia\Response;
 
 class PointsController extends Controller
 {
-    public function __construct(private readonly PointsService $points, private readonly ActivityLogger $activityLogs)
-    {
-    }
+    public function __construct(private readonly PointsService $points, private readonly ActivityLogger $activityLogs) {}
 
     public function mine(Request $request): Response
     {
@@ -42,8 +40,8 @@ class PointsController extends Controller
 
         DB::transaction(function () use ($request, $customer, $attributes): void {
             $lockedCustomer = User::query()->lockForUpdate()->findOrFail($customer->id);
-            $points = (int) $attributes['points'];
-            $balance = $this->points->currentBalance($lockedCustomer);
+            $points         = (int) $attributes['points'];
+            $balance        = $this->points->currentBalance($lockedCustomer);
 
             if ($points < 0 && abs($points) > $balance) {
                 throw ValidationException::withMessages([
@@ -73,8 +71,8 @@ class PointsController extends Controller
     private function showPoints(User $customer, bool $canAdjust): Response
     {
         $settings = $this->points->settings();
-        $balance = $this->points->currentBalance($customer);
-        $ledger = $customer->pointsLedgers()
+        $balance  = $this->points->currentBalance($customer);
+        $ledger   = $customer->pointsLedgers()
             ->with(['order:id,order_number', 'pautangInstallment:id,installment_number'])
             ->latest('transaction_date')
             ->latest('id')
@@ -83,14 +81,14 @@ class PointsController extends Controller
 
         return Inertia::render('modules/points/Show', [
             'customer' => [
-                'id' => $customer->id,
+                'id'   => $customer->id,
                 'name' => $customer->name,
             ],
-            'balance' => $balance,
+            'balance'        => $balance,
             'pesoEquivalent' => number_format($balance * (float) $settings->peso_per_point, 2, '.', ''),
-            'pesoPerPoint' => $settings->peso_per_point,
-            'ledger' => $ledger,
-            'canAdjust' => $canAdjust,
+            'pesoPerPoint'   => $settings->peso_per_point,
+            'ledger'         => $ledger,
+            'canAdjust'      => $canAdjust,
         ]);
     }
 
@@ -98,13 +96,13 @@ class PointsController extends Controller
     private function ledgerData(PointsLedger $entry): array
     {
         return [
-            'id' => $entry->id,
-            'type' => $entry->type,
-            'points' => $entry->points,
-            'description' => $entry->description,
+            'id'               => $entry->id,
+            'type'             => $entry->type,
+            'points'           => $entry->points,
+            'description'      => $entry->description,
             'transaction_date' => $entry->transaction_date->toDateString(),
-            'order' => $entry->order ? [
-                'id' => $entry->order->id,
+            'order'            => $entry->order ? [
+                'id'           => $entry->order->id,
                 'order_number' => $entry->order->order_number,
             ] : null,
             'installment_number' => $entry->pautangInstallment?->installment_number,

@@ -15,16 +15,16 @@ class CreateAdmin extends Command
 
     public function handle(): int
     {
-        $name = $this->option('name') ?: $this->ask('Name');
-        $email = $this->option('email') ?: $this->ask('Email address');
+        $name     = $this->option('name') ?: $this->ask('Name');
+        $email    = $this->option('email') ?: $this->ask('Email address');
         $password = $this->option('password') ?: $this->secret('Password (at least 8 characters)');
 
         try {
             validator(
                 ['name' => $name, 'email' => $email, 'password' => $password],
                 [
-                    'name' => ['required', 'string', 'max:255'],
-                    'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+                    'name'     => ['required', 'string', 'max:255'],
+                    'email'    => ['required', 'email', 'max:255', 'unique:users,email'],
                     'password' => ['required', 'string', 'min:8'],
                 ],
             )->validate();
@@ -39,8 +39,8 @@ class CreateAdmin extends Command
         }
 
         User::create([
-            'name' => $name,
-            'email' => $email,
+            'name'     => $name,
+            'email'    => $email,
             'password' => Hash::make($password),
             'is_admin' => true,
         ]);

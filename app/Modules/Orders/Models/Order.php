@@ -2,9 +2,9 @@
 
 namespace App\Modules\Orders\Models;
 
+use App\Modules\Delivery\Models\Delivery;
 use App\Modules\Inventory\Models\RiceProduct;
 use App\Modules\Inventory\Models\StockMovement;
-use App\Modules\Delivery\Models\Delivery;
 use App\Modules\Points\Models\PointsLedger;
 use App\Modules\Users\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -59,17 +59,17 @@ class Order extends Model
     protected function casts(): array
     {
         return [
-            'quantity' => 'integer',
-            'unit_price' => 'decimal:2',
-            'subtotal' => 'decimal:2',
-            'points_used' => 'integer',
-            'points_discount' => 'decimal:2',
-            'delivery_fee' => 'decimal:2',
-            'final_amount' => 'decimal:2',
-            'amount_paid' => 'decimal:2',
+            'quantity'          => 'integer',
+            'unit_price'        => 'decimal:2',
+            'subtotal'          => 'decimal:2',
+            'points_used'       => 'integer',
+            'points_discount'   => 'decimal:2',
+            'delivery_fee'      => 'decimal:2',
+            'final_amount'      => 'decimal:2',
+            'amount_paid'       => 'decimal:2',
             'remaining_balance' => 'decimal:2',
-            'order_date' => 'date',
-            'delivery_date' => 'date',
+            'order_date'        => 'date',
+            'delivery_date'     => 'date',
         ];
     }
 

@@ -22,10 +22,10 @@ class StoreGcashPaymentRequest extends FormRequest
     {
         return [
             'pautang_installment_id' => ['required', 'integer', 'exists:pautang_installments,id'],
-            'amount' => ['required', 'numeric', 'min:0.01', 'decimal:0,2'],
-            'reference_number' => ['required', 'string', 'max:100'],
-            'screenshot' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'payment_date' => ['required', 'date', 'before_or_equal:today'],
+            'amount'                 => ['required', 'numeric', 'min:0.01', 'decimal:0,2'],
+            'reference_number'       => ['required', 'string', 'max:100'],
+            'screenshot'             => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'payment_date'           => ['required', 'date', 'before_or_equal:today'],
         ];
     }
 }

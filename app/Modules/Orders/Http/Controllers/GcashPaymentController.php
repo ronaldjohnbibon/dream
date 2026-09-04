@@ -3,14 +3,14 @@
 namespace App\Modules\Orders\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Logs\Services\ActivityLogger;
+use App\Modules\Notifications\Services\CustomerNotificationService;
 use App\Modules\Orders\Http\Requests\RejectGcashPaymentRequest;
 use App\Modules\Orders\Http\Requests\ReviewGcashPaymentRequest;
 use App\Modules\Orders\Http\Requests\StoreGcashPaymentRequest;
 use App\Modules\Orders\Models\GcashPayment;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\PautangInstallment;
-use App\Modules\Notifications\Services\CustomerNotificationService;
-use App\Modules\Logs\Services\ActivityLogger;
 use App\Modules\Points\Models\PointsLedger;
 use App\Modules\Points\Services\PointsService;
 use App\Modules\Settings\Models\GcashSetting;
@@ -51,7 +51,7 @@ class GcashPaymentController extends Controller
 
         return Inertia::render('modules/payments/Index', [
             'payments' => $payments,
-            'status' => $status,
+            'status'   => $status,
         ]);
     }
 
@@ -68,15 +68,15 @@ class GcashPaymentController extends Controller
         }
 
         return Inertia::render('modules/payments/Create', [
-            'order' => $this->paymentOrderData($order),
+            'order'       => $this->paymentOrderData($order),
             'installment' => $this->installmentData($installment),
-            'gcash' => ['account_name' => $gcash->account_name, 'account_number' => $gcash->account_number, 'qr_code_url' => Storage::disk('public')->url($gcash->qr_code_path)],
+            'gcash'       => ['account_name' => $gcash->account_name, 'account_number' => $gcash->account_number, 'qr_code_url' => Storage::disk('public')->url($gcash->qr_code_path)],
         ]);
     }
 
     public function store(StoreGcashPaymentRequest $request, Order $order): RedirectResponse
     {
-        $attributes = $request->validated();
+        $attributes     = $request->validated();
         $screenshotPath = null;
 
         try {
@@ -97,13 +97,13 @@ class GcashPaymentController extends Controller
                 $screenshotPath = $request->file('screenshot')->store('gcash-payment-screenshots', 'local');
 
                 return GcashPayment::create([
-                    'order_id' => $lockedOrder->id,
+                    'order_id'               => $lockedOrder->id,
                     'pautang_installment_id' => $installment->id,
-                    'customer_id' => $request->user()->id,
-                    'amount' => number_format($amount, 2, '.', ''),
-                    'reference_number' => trim($attributes['reference_number']),
-                    'screenshot_path' => $screenshotPath,
-                    'payment_date' => $attributes['payment_date'],
+                    'customer_id'            => $request->user()->id,
+                    'amount'                 => number_format($amount, 2, '.', ''),
+                    'reference_number'       => trim($attributes['reference_number']),
+                    'screenshot_path'        => $screenshotPath,
+                    'payment_date'           => $attributes['payment_date'],
                 ]);
             });
         } catch (\Throwable $exception) {
@@ -146,7 +146,7 @@ class GcashPaymentController extends Controller
             DB::transaction(function () use ($request, $gcashPayment, &$earnedLedgerIds): void {
                 $payment = GcashPayment::query()->lockForUpdate()->findOrFail($gcashPayment->id);
                 $this->ensurePending($payment);
-                $order = Order::query()->lockForUpdate()->findOrFail($payment->order_id);
+                $order       = Order::query()->lockForUpdate()->findOrFail($payment->order_id);
                 $installment = PautangInstallment::query()->lockForUpdate()->findOrFail($payment->pautang_installment_id);
                 $this->ensureSubmittable($order, $installment);
 
@@ -156,11 +156,11 @@ class GcashPaymentController extends Controller
                 }
 
                 $amountPaid = round((float) $installment->amount_paid + $amount, 2);
-                $remaining = round(max(0, (float) $installment->amount_due - $amountPaid), 2);
+                $remaining  = round(max(0, (float) $installment->amount_due - $amountPaid), 2);
                 $installment->fill([
-                    'amount_paid' => number_format($amountPaid, 2, '.', ''),
+                    'amount_paid'       => number_format($amountPaid, 2, '.', ''),
                     'remaining_balance' => number_format($remaining, 2, '.', ''),
-                    'paid_date' => $remaining === 0.0 ? today() : null,
+                    'paid_date'         => $remaining === 0.0 ? today() : null,
                 ]);
                 $installment->status = $installment->currentStatus();
                 $installment->save();
@@ -176,11 +176,11 @@ class GcashPaymentController extends Controller
                 $this->updatePautangOrderTotals($order, $installments);
 
                 $payment->update([
-                    'status' => 'approved',
+                    'status'                    => 'approved',
                     'approved_reference_number' => $payment->reference_number,
-                    'remarks' => $request->validated('remarks'),
-                    'reviewed_by' => $request->user()->id,
-                    'reviewed_at' => now(),
+                    'remarks'                   => $request->validated('remarks'),
+                    'reviewed_by'               => $request->user()->id,
+                    'reviewed_at'               => now(),
                 ]);
                 $this->activityLogs->record(
                     $request->user(),
@@ -223,8 +223,8 @@ class GcashPaymentController extends Controller
             $this->ensurePending($payment);
             $order = Order::query()->findOrFail($payment->order_id);
             $payment->update([
-                'status' => 'rejected',
-                'remarks' => $request->validated('remarks'),
+                'status'      => 'rejected',
+                'remarks'     => $request->validated('remarks'),
                 'reviewed_by' => $request->user()->id,
                 'reviewed_at' => now(),
             ]);
@@ -255,7 +255,7 @@ class GcashPaymentController extends Controller
     private function requestedInstallment(Request $request, Order $order): PautangInstallment
     {
         $installmentId = $request->integer('installment');
-        $installment = $order->pautangInstallments->firstWhere('id', $installmentId);
+        $installment   = $order->pautangInstallments->firstWhere('id', $installmentId);
         if (! $installment) {
             throw ValidationException::withMessages(['installment' => 'Choose an unpaid pautang installment.']);
         }
@@ -295,17 +295,17 @@ class GcashPaymentController extends Controller
     private function updateOrderTotals(Order $order, float $amountPaid, float $remainingBalance): void
     {
         $order->update([
-            'amount_paid' => number_format($amountPaid, 2, '.', ''),
+            'amount_paid'       => number_format($amountPaid, 2, '.', ''),
             'remaining_balance' => number_format($remainingBalance, 2, '.', ''),
-            'payment_status' => $remainingBalance <= 0 ? 'paid' : ($amountPaid > 0 ? 'partially_paid' : 'unpaid'),
+            'payment_status'    => $remainingBalance <= 0 ? 'paid' : ($amountPaid > 0 ? 'partially_paid' : 'unpaid'),
         ]);
     }
 
     /** @param Collection<int, PautangInstallment> $installments */
     private function updatePautangOrderTotals(Order $order, Collection $installments): void
     {
-        $amountPaid = round((float) $installments->sum('amount_paid'), 2);
-        $remaining = round((float) $installments->sum('remaining_balance'), 2);
+        $amountPaid    = round((float) $installments->sum('amount_paid'), 2);
+        $remaining     = round((float) $installments->sum('remaining_balance'), 2);
         $paymentStatus = $remaining <= 0
             ? 'paid'
             : ($installments->contains(fn (PautangInstallment $item) => $item->currentStatus() === 'overdue')
@@ -322,8 +322,8 @@ class GcashPaymentController extends Controller
     private function paymentOrderData(Order $order): array
     {
         return [
-            'id' => $order->id,
-            'order_number' => $order->order_number,
+            'id'                => $order->id,
+            'order_number'      => $order->order_number,
             'remaining_balance' => $order->remaining_balance,
         ];
     }
@@ -332,10 +332,10 @@ class GcashPaymentController extends Controller
     private function installmentData(PautangInstallment $installment): array
     {
         return [
-            'id' => $installment->id,
+            'id'                 => $installment->id,
             'installment_number' => $installment->installment_number,
-            'amount_due' => $installment->amount_due,
-            'remaining_balance' => $installment->remaining_balance,
+            'amount_due'         => $installment->amount_due,
+            'remaining_balance'  => $installment->remaining_balance,
         ];
     }
 
@@ -343,39 +343,39 @@ class GcashPaymentController extends Controller
     private function paymentData(GcashPayment $payment, bool $includeOrderDetails): array
     {
         return [
-            'id' => $payment->id,
-            'amount' => $payment->amount,
+            'id'               => $payment->id,
+            'amount'           => $payment->amount,
             'reference_number' => $payment->reference_number,
-            'payment_date' => $payment->payment_date->toDateString(),
-            'status' => $payment->status,
-            'remarks' => $payment->remarks,
-            'reviewed_at' => $payment->reviewed_at?->toISOString(),
-            'screenshot_url' => route('gcash-payments.screenshot', $payment),
-            'order' => [
-                'id' => $payment->order->id,
+            'payment_date'     => $payment->payment_date->toDateString(),
+            'status'           => $payment->status,
+            'remarks'          => $payment->remarks,
+            'reviewed_at'      => $payment->reviewed_at?->toISOString(),
+            'screenshot_url'   => route('gcash-payments.screenshot', $payment),
+            'order'            => [
+                'id'           => $payment->order->id,
                 'order_number' => $payment->order->order_number,
                 ...($includeOrderDetails ? [
-                    'final_amount' => $payment->order->final_amount,
-                    'amount_paid' => $payment->order->amount_paid,
+                    'final_amount'      => $payment->order->final_amount,
+                    'amount_paid'       => $payment->order->amount_paid,
                     'remaining_balance' => $payment->order->remaining_balance,
                 ] : []),
             ],
             'customer' => [
-                'id' => $payment->customer->id,
-                'name' => $payment->customer->name,
-                'email' => $payment->customer->email,
+                'id'            => $payment->customer->id,
+                'name'          => $payment->customer->name,
+                'email'         => $payment->customer->email,
                 'mobile_number' => $payment->customer->mobile_number,
             ],
             'installment' => $payment->pautangInstallment ? [
-                'id' => $payment->pautangInstallment->id,
+                'id'                 => $payment->pautangInstallment->id,
                 'installment_number' => $payment->pautangInstallment->installment_number,
                 ...($includeOrderDetails ? [
-                    'amount_due' => $payment->pautangInstallment->amount_due,
-                    'amount_paid' => $payment->pautangInstallment->amount_paid,
+                    'amount_due'        => $payment->pautangInstallment->amount_due,
+                    'amount_paid'       => $payment->pautangInstallment->amount_paid,
                     'remaining_balance' => $payment->pautangInstallment->remaining_balance,
                 ] : []),
             ] : null,
-            'reviewer' => $payment->reviewer ? ['id' => $payment->reviewer->id, 'name' => $payment->reviewer->name] : null,
+            'reviewer'   => $payment->reviewer ? ['id' => $payment->reviewer->id, 'name' => $payment->reviewer->name] : null,
             'created_at' => $payment->created_at->toISOString(),
         ];
     }

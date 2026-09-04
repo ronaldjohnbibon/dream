@@ -18,10 +18,10 @@ class UpdateDeliveryRequest extends FormRequest
         return [
             'delivery_area_id' => ['required', 'integer', Rule::exists('delivery_areas', 'id')],
             'delivery_address' => ['required', 'string', 'max:2000'],
-            'delivery_date' => ['nullable', 'date'],
-            'delivery_person' => ['nullable', 'string', 'max:255'],
-            'status' => ['required', 'string', Rule::in(Delivery::STATUSES)],
-            'notes' => ['nullable', 'string', 'max:2000'],
+            'delivery_date'    => ['nullable', 'date'],
+            'delivery_person'  => ['nullable', 'string', 'max:255'],
+            'status'           => ['required', 'string', Rule::in(Delivery::STATUSES)],
+            'notes'            => ['nullable', 'string', 'max:2000'],
         ];
     }
 

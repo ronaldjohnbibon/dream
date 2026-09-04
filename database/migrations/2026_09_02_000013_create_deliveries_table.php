@@ -30,13 +30,13 @@ return new class extends Migration
             return;
         }
 
-        $now = now();
+        $now         = now();
         $daangHariId = DB::table('delivery_areas')->insertGetId([
-            'name' => 'Daang Hari',
+            'name'         => 'Daang Hari',
             'delivery_fee' => 0,
-            'is_active' => true,
-            'created_at' => $now,
-            'updated_at' => $now,
+            'is_active'    => true,
+            'created_at'   => $now,
+            'updated_at'   => $now,
         ]);
 
         $areaIds = ['Daang Hari' => $daangHariId];
@@ -44,37 +44,37 @@ return new class extends Migration
             $areaName = trim((string) $order->delivery_area) ?: 'Daang Hari';
             if (! isset($areaIds[$areaName])) {
                 $areaIds[$areaName] = DB::table('delivery_areas')->insertGetId([
-                    'name' => $areaName,
+                    'name'         => $areaName,
                     'delivery_fee' => 0,
-                    'is_active' => false,
-                    'created_at' => $now,
-                    'updated_at' => $now,
+                    'is_active'    => false,
+                    'created_at'   => $now,
+                    'updated_at'   => $now,
                 ]);
             }
 
             $status = match ($order->order_status) {
-                'confirmed' => 'scheduled',
-                'preparing' => 'preparing',
-                'out_for_delivery' => 'out_for_delivery',
+                'confirmed'              => 'scheduled',
+                'preparing'              => 'preparing',
+                'out_for_delivery'       => 'out_for_delivery',
                 'delivered', 'completed' => 'delivered',
-                'cancelled' => 'cancelled',
-                default => 'pending',
+                'cancelled'              => 'cancelled',
+                default                  => 'pending',
             };
 
             DB::table('deliveries')->insert([
-                'order_id' => $order->id,
-                'customer_id' => $order->customer_id,
-                'delivery_area_id' => $areaIds[$areaName],
+                'order_id'           => $order->id,
+                'customer_id'        => $order->customer_id,
+                'delivery_area_id'   => $areaIds[$areaName],
                 'delivery_area_name' => $areaName,
-                'delivery_address' => $order->delivery_address,
-                'delivery_fee' => $order->delivery_fee,
-                'delivery_date' => $order->delivery_date,
-                'delivery_person' => null,
-                'status' => $status,
-                'notes' => $order->notes,
-                'delivered_date' => in_array($status, ['delivered'], true) ? substr((string) $order->updated_at, 0, 10) : null,
-                'created_at' => $order->created_at,
-                'updated_at' => $order->updated_at,
+                'delivery_address'   => $order->delivery_address,
+                'delivery_fee'       => $order->delivery_fee,
+                'delivery_date'      => $order->delivery_date,
+                'delivery_person'    => null,
+                'status'             => $status,
+                'notes'              => $order->notes,
+                'delivered_date'     => in_array($status, ['delivered'], true) ? substr((string) $order->updated_at, 0, 10) : null,
+                'created_at'         => $order->created_at,
+                'updated_at'         => $order->updated_at,
             ]);
         }
     }

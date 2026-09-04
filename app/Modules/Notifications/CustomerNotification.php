@@ -10,9 +10,7 @@ class CustomerNotification extends Notification
     use Queueable;
 
     /** @param array<string, mixed> $data */
-    public function __construct(private readonly array $data)
-    {
-    }
+    public function __construct(private readonly array $data) {}
 
     /** @return list<string> */
     public function via(object $notifiable): array

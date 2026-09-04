@@ -18,9 +18,7 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __construct(private readonly PointsService $points)
-    {
-    }
+    public function __construct(private readonly PointsService $points) {}
 
     public function __invoke(Request $request): Response
     {
@@ -34,9 +32,9 @@ class DashboardController extends Controller
     /** @return array<string, mixed> */
     private function customerDashboardData(User $customer): array
     {
-        $points = $this->points->settings();
+        $points        = $this->points->settings();
         $pointsBalance = $this->points->currentBalance($customer);
-        $activeOrder = $customer->orders()
+        $activeOrder   = $customer->orders()
             ->with(['riceProduct:id,name,brand,sack_size', 'delivery', 'pautangInstallments'])
             ->where('order_status', '!=', 'cancelled')
             ->whereHas('delivery', fn (Builder $query) => $query->whereNotIn('status', ['delivered', 'cancelled']))
@@ -58,23 +56,23 @@ class DashboardController extends Controller
 
         return [
             'points' => [
-                'balance' => $pointsBalance,
+                'balance'         => $pointsBalance,
                 'peso_equivalent' => number_format($pointsBalance * (float) $points->peso_per_point, 2, '.', ''),
             ],
-            'active_order' => $activeOrder ? $this->customerOrderData($activeOrder) : null,
-            'active_pautang' => $activePautang ? $this->customerPautangData($activePautang) : null,
-            'recent_orders' => $recentOrders->map(fn (Order $order) => $this->customerOrderData($order))->values(),
+            'active_order'    => $activeOrder ? $this->customerOrderData($activeOrder) : null,
+            'active_pautang'  => $activePautang ? $this->customerPautangData($activePautang) : null,
+            'recent_orders'   => $recentOrders->map(fn (Order $order) => $this->customerOrderData($order))->values(),
             'recent_payments' => $customer->gcashPayments()
                 ->with(['order:id,order_number', 'pautangInstallment:id,installment_number'])
                 ->latest('created_at')
                 ->limit(5)
                 ->get()
                 ->map(fn (GcashPayment $payment) => [
-                    'id' => $payment->id,
-                    'amount' => $payment->amount,
-                    'payment_date' => $payment->payment_date->toDateString(),
-                    'status' => $payment->status,
-                    'order' => ['id' => $payment->order->id, 'order_number' => $payment->order->order_number],
+                    'id'                 => $payment->id,
+                    'amount'             => $payment->amount,
+                    'payment_date'       => $payment->payment_date->toDateString(),
+                    'status'             => $payment->status,
+                    'order'              => ['id' => $payment->order->id, 'order_number' => $payment->order->order_number],
                     'installment_number' => $payment->pautangInstallment?->installment_number,
                 ])
                 ->values(),
@@ -85,12 +83,12 @@ class DashboardController extends Controller
                 ->limit(5)
                 ->get()
                 ->map(fn (PointsLedger $entry) => [
-                    'id' => $entry->id,
-                    'type' => $entry->type,
-                    'points' => $entry->points,
-                    'description' => $entry->description,
+                    'id'               => $entry->id,
+                    'type'             => $entry->type,
+                    'points'           => $entry->points,
+                    'description'      => $entry->description,
                     'transaction_date' => $entry->transaction_date->toDateString(),
-                    'order' => $entry->order ? ['id' => $entry->order->id, 'order_number' => $entry->order->order_number] : null,
+                    'order'            => $entry->order ? ['id' => $entry->order->id, 'order_number' => $entry->order->order_number] : null,
                 ])
                 ->values(),
         ];
@@ -100,13 +98,13 @@ class DashboardController extends Controller
     private function customerOrderData(Order $order): array
     {
         return [
-            'id' => $order->id,
-            'order_number' => $order->order_number,
-            'rice_product' => $order->riceProduct ? "{$order->riceProduct->name} ({$order->riceProduct->brand})" : 'Rice product unavailable',
-            'quantity' => $order->quantity,
-            'final_amount' => $order->final_amount,
-            'order_date' => $order->order_date->toDateString(),
-            'payment_status' => $this->customerPaymentStatus($order),
+            'id'              => $order->id,
+            'order_number'    => $order->order_number,
+            'rice_product'    => $order->riceProduct ? "{$order->riceProduct->name} ({$order->riceProduct->brand})" : 'Rice product unavailable',
+            'quantity'        => $order->quantity,
+            'final_amount'    => $order->final_amount,
+            'order_date'      => $order->order_date->toDateString(),
+            'payment_status'  => $this->customerPaymentStatus($order),
             'delivery_status' => $order->delivery?->status,
         ];
     }
@@ -118,18 +116,18 @@ class DashboardController extends Controller
             ->filter(fn (PautangInstallment $installment) => (float) $installment->remaining_balance > 0)
             ->sortBy('due_date')
             ->values();
-        $nextInstallment = $unpaidInstallments->first();
+        $nextInstallment  = $unpaidInstallments->first();
         $canSubmitPayment = $nextInstallment
             && ! in_array($order->delivery?->status, ['pending', 'cancelled'], true);
 
         return [
             ...$this->customerOrderData($order),
-            'amount_paid' => $order->amount_paid,
-            'remaining_balance' => $order->remaining_balance,
-            'next_due_date' => $nextInstallment?->due_date?->toDateString(),
+            'amount_paid'            => $order->amount_paid,
+            'remaining_balance'      => $order->remaining_balance,
+            'next_due_date'          => $nextInstallment?->due_date?->toDateString(),
             'payable_installment_id' => $nextInstallment?->id,
-            'can_submit_payment' => (bool) $canSubmitPayment,
-            'payment_ready_message' => $nextInstallment ? null : 'Your payment schedule will be available once this order is scheduled for delivery.',
+            'can_submit_payment'     => (bool) $canSubmitPayment,
+            'payment_ready_message'  => $nextInstallment ? null : 'Your payment schedule will be available once this order is scheduled for delivery.',
         ];
     }
 
@@ -155,10 +153,10 @@ class DashboardController extends Controller
     /** @return array<string, mixed> */
     private function dashboardData(): array
     {
-        $today = today();
-        $system = SystemSetting::current();
-        $activeOrders = Order::query()->where('order_status', '!=', 'cancelled');
-        $todayOrders = (clone $activeOrders)->whereDate('order_date', $today);
+        $today         = today();
+        $system        = SystemSetting::current();
+        $activeOrders  = Order::query()->where('order_status', '!=', 'cancelled');
+        $todayOrders   = (clone $activeOrders)->whereDate('order_date', $today);
         $activePautang = (clone $activeOrders)->where('remaining_balance', '>', 0);
 
         return [
@@ -181,12 +179,12 @@ class DashboardController extends Controller
                 $this->metric('Points Redeemed', abs((int) PointsLedger::query()->where('type', 'redemption')->sum('points')), 'number', 'All-time redeemed points'),
             ],
             'charts' => [
-                'daily_sales' => $this->salesPeriod($today->copy()->subDays(6), $today, 'day'),
-                'monthly_sales' => $this->salesPeriod($today->copy()->startOfMonth()->subMonths(5), $today, 'month'),
-                'collections' => $this->collections($today->copy()->subDays(6), $today),
+                'daily_sales'          => $this->salesPeriod($today->copy()->subDays(6), $today, 'day'),
+                'monthly_sales'        => $this->salesPeriod($today->copy()->startOfMonth()->subMonths(5), $today, 'month'),
+                'collections'          => $this->collections($today->copy()->subDays(6), $today),
                 'outstanding_balances' => $this->outstandingBalances(),
-                'best_selling_rice' => $this->bestSellingRice(),
-                'payment_timing' => $this->paymentTiming(),
+                'best_selling_rice'    => $this->bestSellingRice(),
+                'payment_timing'       => $this->paymentTiming(),
             ],
         ];
     }
@@ -217,7 +215,7 @@ class DashboardController extends Controller
 
         $values = [];
         foreach ($sales as $order) {
-            $key = $period === 'day' ? $order->order_date->toDateString() : $order->order_date->format('Y-m');
+            $key          = $period === 'day' ? $order->order_date->toDateString() : $order->order_date->format('Y-m');
             $values[$key] = ($values[$key] ?? 0.0) + (float) $order->final_amount;
         }
 
@@ -235,13 +233,13 @@ class DashboardController extends Controller
             ->get(['payment_date', 'amount']);
         $values = [];
         foreach ($payments as $payment) {
-            $key = $payment->payment_date->toDateString();
+            $key          = $payment->payment_date->toDateString();
             $values[$key] = ($values[$key] ?? 0.0) + (float) $payment->amount;
         }
 
         $points = [];
         for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
-            $key = $date->toDateString();
+            $key      = $date->toDateString();
             $points[] = ['label' => $date->format('M j'), 'value' => round($values[$key] ?? 0, 2)];
         }
 
@@ -281,7 +279,7 @@ class DashboardController extends Controller
             ->with(['gcashPayments' => fn ($query) => $query->where('status', 'approved')->orderByDesc('payment_date')])
             ->get(['id', 'due_date']);
         $onTime = 0;
-        $late = 0;
+        $late   = 0;
         foreach ($installments as $installment) {
             $finalPayment = $installment->gcashPayments->first();
             if (! $finalPayment) {
@@ -301,7 +299,7 @@ class DashboardController extends Controller
     }
 
     /** @param list<array{label: string, value: float|int}> $points
-     *  @return list<array{label: string, value: float|int, percentage: float}>
+     * @return list<array{label: string, value: float|int, percentage: float}>
      */
     private function withPercentages(array $points): array
     {

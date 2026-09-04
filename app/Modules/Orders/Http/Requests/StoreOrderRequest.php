@@ -17,12 +17,12 @@ class StoreOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'rice_product_id' => ['required', 'integer', 'exists:rice_products,id'],
-            'quantity' => ['required', 'integer', 'min:1'],
-            'points_to_use' => ['nullable', 'integer', 'min:0'],
+            'rice_product_id'  => ['required', 'integer', 'exists:rice_products,id'],
+            'quantity'         => ['required', 'integer', 'min:1'],
+            'points_to_use'    => ['nullable', 'integer', 'min:0'],
             'delivery_address' => ['required', 'string', 'max:2000'],
             'delivery_area_id' => ['required', 'integer', Rule::exists('delivery_areas', 'id')->where('is_active', true)],
-            'notes' => ['nullable', 'string', 'max:2000'],
+            'notes'            => ['nullable', 'string', 'max:2000'],
         ];
     }
 }

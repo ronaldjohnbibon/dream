@@ -26,12 +26,12 @@ class UpdateCustomerRequest extends FormRequest
         $customer = $this->route('customer');
 
         return [
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'string', 'lowercase', 'email', 'max:255', Rule::unique(User::class)->ignore($customer)],
-            'mobile_number' => ['required', 'string', 'max:30'],
+            'name'             => ['required', 'string', 'max:255'],
+            'email'            => ['nullable', 'string', 'lowercase', 'email', 'max:255', Rule::unique(User::class)->ignore($customer)],
+            'mobile_number'    => ['required', 'string', 'max:30'],
             'complete_address' => ['required', 'string', 'max:2000'],
-            'delivery_area' => ['required', 'string', 'max:255'],
-            'password' => ['nullable', 'confirmed', Password::defaults()],
+            'delivery_area'    => ['required', 'string', 'max:255'],
+            'password'         => ['nullable', 'confirmed', Password::defaults()],
         ];
     }
 }

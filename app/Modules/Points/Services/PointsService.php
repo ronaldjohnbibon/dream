@@ -18,10 +18,10 @@ class PointsService
             [
                 'completed_order_points' => 10,
                 'on_time_payment_points' => 10,
-                'peso_per_point' => '0.10',
-                'is_enabled' => true,
-                'minimum_redemption' => 1,
-                'maximum_points_usable' => 1000,
+                'peso_per_point'         => '0.10',
+                'is_enabled'             => true,
+                'minimum_redemption'     => 1,
+                'maximum_points_usable'  => 1000,
             ],
         );
     }
@@ -38,10 +38,10 @@ class PointsService
     public function awardCompletedPautang(Order $order, GcashPayment $payment): ?PointsLedger
     {
         if (! $this->settings()->is_enabled || $order->order_status === 'cancelled'
-            || $payment->status !== 'approved'
-            || (float) $order->remaining_balance > 0
-            || $order->pautangInstallments()->doesntExist()
-            || $order->pautangInstallments()->where('remaining_balance', '>', 0)->exists()) {
+                                            || $payment->status !== 'approved'
+                                            || (float) $order->remaining_balance > 0
+                                            || $order->pautangInstallments()->doesntExist()
+                                            || $order->pautangInstallments()->where('remaining_balance', '>', 0)->exists()) {
             return null;
         }
 
@@ -52,15 +52,15 @@ class PointsService
 
         $ledger = PointsLedger::query()->firstOrCreate(
             [
-                'type' => 'order_reward',
+                'type'        => 'order_reward',
                 'source_type' => 'order',
-                'source_id' => $order->id,
+                'source_id'   => $order->id,
             ],
             [
-                'customer_id' => $order->customer_id,
-                'order_id' => $order->id,
-                'points' => $points,
-                'description' => "Completed pautang reward for order {$order->order_number}.",
+                'customer_id'      => $order->customer_id,
+                'order_id'         => $order->id,
+                'points'           => $points,
+                'description'      => "Completed pautang reward for order {$order->order_number}.",
                 'transaction_date' => $payment->payment_date,
             ],
         );
@@ -71,9 +71,9 @@ class PointsService
     public function awardOnTimeInstallmentPayment(Order $order, PautangInstallment $installment, GcashPayment $payment): ?PointsLedger
     {
         if (! $this->settings()->is_enabled || $order->order_status === 'cancelled'
-            || $payment->status !== 'approved'
-            || (float) $installment->remaining_balance > 0
-            || $payment->payment_date->isAfter($installment->due_date)) {
+                                            || $payment->status !== 'approved'
+                                            || (float) $installment->remaining_balance > 0
+                                            || $payment->payment_date->isAfter($installment->due_date)) {
             return null;
         }
 
@@ -84,17 +84,17 @@ class PointsService
 
         $ledger = PointsLedger::query()->firstOrCreate(
             [
-                'type' => 'on_time_payment_bonus',
+                'type'        => 'on_time_payment_bonus',
                 'source_type' => 'pautang_installment',
-                'source_id' => $installment->id,
+                'source_id'   => $installment->id,
             ],
             [
-                'customer_id' => $order->customer_id,
-                'order_id' => $order->id,
+                'customer_id'            => $order->customer_id,
+                'order_id'               => $order->id,
                 'pautang_installment_id' => $installment->id,
-                'points' => $points,
-                'description' => "On-time payment bonus for installment {$installment->installment_number} of order {$order->order_number}.",
-                'transaction_date' => $payment->payment_date,
+                'points'                 => $points,
+                'description'            => "On-time payment bonus for installment {$installment->installment_number} of order {$order->order_number}.",
+                'transaction_date'       => $payment->payment_date,
             ],
         );
 
@@ -104,9 +104,9 @@ class PointsService
     public function createAdminAdjustment(User $customer, int $points, string $reason, User $admin): PointsLedger
     {
         return $customer->pointsLedgers()->create([
-            'type' => 'admin_adjustment',
-            'points' => $points,
-            'description' => "Admin adjustment by {$admin->name}: {$reason}",
+            'type'             => 'admin_adjustment',
+            'points'           => $points,
+            'description'      => "Admin adjustment by {$admin->name}: {$reason}",
             'transaction_date' => today(),
         ]);
     }
@@ -115,15 +115,15 @@ class PointsService
     {
         return PointsLedger::query()->firstOrCreate(
             [
-                'type' => 'redemption',
+                'type'        => 'redemption',
                 'source_type' => 'order',
-                'source_id' => $order->id,
+                'source_id'   => $order->id,
             ],
             [
-                'customer_id' => $order->customer_id,
-                'order_id' => $order->id,
-                'points' => -$points,
-                'description' => "Points redeemed for order {$order->order_number}.",
+                'customer_id'      => $order->customer_id,
+                'order_id'         => $order->id,
+                'points'           => -$points,
+                'description'      => "Points redeemed for order {$order->order_number}.",
                 'transaction_date' => today(),
             ],
         );
@@ -137,15 +137,15 @@ class PointsService
 
         return PointsLedger::query()->firstOrCreate(
             [
-                'type' => 'redemption_refund',
+                'type'        => 'redemption_refund',
                 'source_type' => 'order',
-                'source_id' => $order->id,
+                'source_id'   => $order->id,
             ],
             [
-                'customer_id' => $order->customer_id,
-                'order_id' => $order->id,
-                'points' => $order->points_used,
-                'description' => "Points returned for cancelled order {$order->order_number}.",
+                'customer_id'      => $order->customer_id,
+                'order_id'         => $order->id,
+                'points'           => $order->points_used,
+                'description'      => "Points returned for cancelled order {$order->order_number}.",
                 'transaction_date' => today(),
             ],
         );
