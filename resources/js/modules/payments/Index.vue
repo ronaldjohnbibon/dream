@@ -33,14 +33,14 @@ const statusClass = (status: GcashPaymentStatus) =>
 <template>
   <Head title="Payments" />
   <AppLayout :breadcrumbs="breadcrumbs">
-    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+    <div class="app-page">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">GCash payments</h1>
-        <p class="mt-1 text-sm text-muted-foreground">
+        <h1 class="page-title">GCash payments</h1>
+        <p class="page-description">
           Review customer payment submissions and their proof of payment.
         </p>
       </div>
-      <form class="flex gap-2" @submit.prevent="applyFilters">
+      <form class="surface-toolbar flex flex-wrap gap-2" @submit.prevent="applyFilters">
         <select
           v-model="filters.status"
           class="h-9 rounded-md border border-input bg-background px-3 text-sm"
@@ -86,7 +86,7 @@ const statusClass = (status: GcashPaymentStatus) =>
             <td class="px-4 py-3 font-mono text-xs">{{ payment.reference_number }}</td>
             <td class="px-4 py-3">{{ payment.payment_date }}</td>
             <td class="px-4 py-3">
-              <span class="rounded-full px-2 py-1 text-xs" :class="statusClass(payment.status)">{{
+              <span class="status-pill" :class="statusClass(payment.status)">{{
                 gcashPaymentStatusLabels[payment.status]
               }}</span>
             </td>

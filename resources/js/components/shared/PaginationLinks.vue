@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Button } from '@/components/ui/button'
 import { Link } from '@inertiajs/vue3'
 
 export interface PaginationLink {
@@ -21,9 +20,11 @@ defineProps<{
       :key="link.label"
       :href="link.url ?? undefined"
       preserve-scroll
-      class="inline-flex h-9 min-w-9 items-center justify-center rounded-md border px-3 text-sm"
+      class="inline-flex h-9 min-w-9 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-colors"
       :class="[
-        link.active ? 'border-primary bg-primary text-primary-foreground' : 'bg-background',
+        link.active
+          ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+          : 'bg-background hover:bg-accent',
         !link.url && 'cursor-not-allowed opacity-50',
       ]"
       v-html="link.label"

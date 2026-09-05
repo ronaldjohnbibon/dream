@@ -56,19 +56,17 @@ const statusClass = (status: CustomerStatus) =>
   <Head title="Customers" />
 
   <AppLayout :breadcrumbs="breadcrumbs">
-    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+    <div class="app-page">
       <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 class="text-2xl font-semibold tracking-tight">Customers</h1>
-          <p class="mt-1 text-sm text-muted-foreground">
-            Manage customer profiles and account status.
-          </p>
+          <h1 class="page-title">Customers</h1>
+          <p class="page-description">Manage customer profiles and account status.</p>
         </div>
         <Button as-child><Link :href="route('customers.create')">Create customer</Link></Button>
       </div>
 
       <form
-        class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-[1fr_180px_auto]"
+        class="surface-toolbar grid gap-3 md:grid-cols-[1fr_180px_auto]"
         @submit.prevent="applyFilters"
       >
         <Input
@@ -126,11 +124,9 @@ const statusClass = (status: CustomerStatus) =>
             <td class="px-4 py-3 text-muted-foreground">{{ customer.mobile_number }}</td>
             <td class="px-4 py-3 text-muted-foreground">{{ customer.delivery_area }}</td>
             <td class="px-4 py-3">
-              <span
-                class="rounded-full px-2 py-1 text-xs"
-                :class="statusClass(customer.account_status)"
-                >{{ statusLabel(customer.account_status) }}</span
-              >
+              <span class="status-pill" :class="statusClass(customer.account_status)">{{
+                statusLabel(customer.account_status)
+              }}</span>
             </td>
             <td class="px-4 py-3 text-muted-foreground">
               {{ dateFormatter.format(new Date(customer.created_at)) }}

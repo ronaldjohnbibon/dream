@@ -61,17 +61,17 @@ const deleteUser = () => {
   <Head title="Administrators" />
 
   <AppLayout :breadcrumbs="breadcrumbs">
-    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+    <div class="app-page">
       <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 class="text-2xl font-semibold tracking-tight">Administrators</h1>
-          <p class="mt-1 text-sm text-muted-foreground">Manage administrator accounts.</p>
+          <h1 class="page-title">Administrators</h1>
+          <p class="page-description">Manage administrator accounts.</p>
         </div>
         <Button as-child><Link :href="route('users.create')">Create administrator</Link></Button>
       </div>
 
       <form
-        class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-[1fr_auto]"
+        class="surface-toolbar grid gap-3 md:grid-cols-[1fr_auto]"
         @submit.prevent="applyFilters"
       >
         <Input

@@ -169,10 +169,13 @@ const pointsTypeLabel = (type: string) =>
   <Head title="Dashboard" />
 
   <AppLayout :breadcrumbs="breadcrumbs">
-    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+    <div class="app-page">
       <div v-if="adminDashboard">
-        <h1 class="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p class="mt-1 text-sm text-muted-foreground">
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+          Operations overview
+        </p>
+        <h1 class="page-title mt-1">Dashboard</h1>
+        <p class="page-description">
           A live snapshot of sales, payments, customer credit, and rice inventory.
         </p>
       </div>
@@ -180,10 +183,11 @@ const pointsTypeLabel = (type: string) =>
       <template v-if="customerDashboard">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 class="text-2xl font-semibold tracking-tight">Welcome back</h1>
-            <p class="mt-1 text-sm text-muted-foreground">
-              Your orders, payments, and points—at a glance.
+            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+              Customer hub
             </p>
+            <h1 class="page-title mt-1">Welcome back</h1>
+            <p class="page-description">Your orders, payments, and points—at a glance.</p>
           </div>
           <Button class="w-full sm:w-auto" as-child
             ><Link :href="route('orders.create')">Order rice</Link></Button
@@ -191,7 +195,9 @@ const pointsTypeLabel = (type: string) =>
         </div>
 
         <div class="grid gap-4 sm:grid-cols-2">
-          <Card>
+          <Card
+            class="metric-card bg-[linear-gradient(135deg,hsl(var(--card)),hsl(var(--secondary)/0.6)]"
+          >
             <CardHeader class="pb-2"
               ><CardDescription>Current points</CardDescription
               ><CardTitle class="text-3xl">{{
@@ -203,7 +209,7 @@ const pointsTypeLabel = (type: string) =>
               equivalent</CardContent
             >
           </Card>
-          <Card>
+          <Card class="metric-card">
             <CardHeader class="pb-2"
               ><CardDescription>Need help?</CardDescription
               ><CardTitle class="text-lg">Keep track of rewards</CardTitle></CardHeader
@@ -218,7 +224,7 @@ const pointsTypeLabel = (type: string) =>
 
         <Card
           v-if="customerDashboard.active_pautang"
-          class="border-amber-300 bg-amber-50/60 dark:bg-amber-950/20"
+          class="border-amber-300/80 bg-amber-50/75 shadow-[0_10px_30px_-24px_rgba(180,83,9,0.45)] dark:bg-amber-950/20"
         >
           <CardHeader>
             <CardTitle>Complete your pautang before ordering another on credit</CardTitle>
@@ -238,7 +244,7 @@ const pointsTypeLabel = (type: string) =>
               </div>
               <span
                 v-if="customerDashboard.active_order"
-                class="rounded-full px-2 py-1 text-xs"
+                class="status-pill"
                 :class="deliveryClass(customerDashboard.active_order.delivery_status)"
                 >{{ deliveryLabel(customerDashboard.active_order.delivery_status) }}</span
               >
@@ -263,7 +269,7 @@ const pointsTypeLabel = (type: string) =>
                 <div>
                   <p class="text-muted-foreground">Payment status</p>
                   <span
-                    class="mt-1 inline-block rounded-full px-2 py-1 text-xs"
+                    class="status-pill mt-1"
                     :class="paymentClass(customerDashboard.active_order.payment_status)"
                     >{{ paymentLabel(customerDashboard.active_order.payment_status) }}</span
                   >
@@ -296,7 +302,7 @@ const pointsTypeLabel = (type: string) =>
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <p class="font-semibold">{{ customerDashboard.active_pautang.order_number }}</p>
                 <span
-                  class="rounded-full px-2 py-1 text-xs"
+                  class="status-pill"
                   :class="paymentClass(customerDashboard.active_pautang.payment_status)"
                   >{{ paymentLabel(customerDashboard.active_pautang.payment_status) }}</span
                 >
@@ -400,15 +406,12 @@ const pointsTypeLabel = (type: string) =>
                     }}</span>
                   </div>
                   <div class="mt-2 flex flex-wrap gap-2">
-                    <span
-                      class="rounded-full px-2 py-1 text-xs"
-                      :class="paymentClass(order.payment_status)"
-                      >{{ paymentLabel(order.payment_status) }}</span
-                    ><span
-                      class="rounded-full px-2 py-1 text-xs"
-                      :class="deliveryClass(order.delivery_status)"
-                      >{{ deliveryLabel(order.delivery_status) }}</span
-                    >
+                    <span class="status-pill" :class="paymentClass(order.payment_status)">{{
+                      paymentLabel(order.payment_status)
+                    }}</span
+                    ><span class="status-pill" :class="deliveryClass(order.delivery_status)">{{
+                      deliveryLabel(order.delivery_status)
+                    }}</span>
                   </div></Link
                 ></template
               ></CardContent
@@ -447,11 +450,9 @@ const pointsTypeLabel = (type: string) =>
                     </div>
                     <p class="font-medium">{{ formatCurrency(Number(payment.amount)) }}</p>
                   </div>
-                  <span
-                    class="mt-2 inline-block rounded-full px-2 py-1 text-xs"
-                    :class="gcashPaymentClass(payment.status)"
-                    >{{ gcashPaymentLabel(payment.status) }}</span
-                  ></Link
+                  <span class="status-pill mt-2" :class="gcashPaymentClass(payment.status)">{{
+                    gcashPaymentLabel(payment.status)
+                  }}</span></Link
                 ></template
               ></CardContent
             >
@@ -516,8 +517,8 @@ const pointsTypeLabel = (type: string) =>
             class="block"
           >
             <Card
-              class="h-full transition-colors"
-              :class="cardHref(metric.label) ? 'hover:bg-muted/40' : ''"
+              class="metric-card h-full transition-all duration-200"
+              :class="cardHref(metric.label) ? 'hover:-translate-y-0.5 hover:bg-muted/40' : ''"
             >
               <CardHeader class="pb-2"
                 ><CardDescription>{{ metric.label }}</CardDescription

@@ -107,12 +107,13 @@ const submit = () => {
   <Head title="Place order" />
 
   <AppLayout :breadcrumbs="breadcrumbs">
-    <div class="mx-auto w-full max-w-3xl space-y-6 p-4 md:p-6">
+    <div class="app-page max-w-5xl">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Place an order</h1>
-        <p class="mt-1 text-sm text-muted-foreground">
-          Choose rice and delivery details for your pautang order.
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+          New pautang order
         </p>
+        <h1 class="page-title mt-1">Place an order</h1>
+        <p class="page-description">Choose rice and delivery details for your pautang order.</p>
       </div>
 
       <Card v-if="products.length === 0">

@@ -45,12 +45,12 @@ const installmentStatusLabel = (status: PautangInstallmentStatus) =>
   <Head :title="canManage ? 'Pautang' : 'My pautang'" />
 
   <AppLayout :breadcrumbs="breadcrumbs">
-    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+    <div class="app-page">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">
+        <h1 class="page-title">
           {{ canManage ? 'Pautang' : 'My pautang' }}
         </h1>
-        <p class="mt-1 text-sm text-muted-foreground">
+        <p class="page-description">
           {{
             canManage
               ? 'Review active, paid, and overdue customer pautang.'
@@ -168,11 +168,9 @@ const installmentStatusLabel = (status: PautangInstallmentStatus) =>
             >
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <p class="font-medium">Give {{ installment.installment_number }}</p>
-                <span
-                  class="rounded-full px-2 py-1 text-xs"
-                  :class="installmentStatusClass(installment.status)"
-                  >{{ installmentStatusLabel(installment.status) }}</span
-                >
+                <span class="status-pill" :class="installmentStatusClass(installment.status)">{{
+                  installmentStatusLabel(installment.status)
+                }}</span>
               </div>
               <div class="mt-4 grid gap-3 text-sm sm:grid-cols-4">
                 <div>

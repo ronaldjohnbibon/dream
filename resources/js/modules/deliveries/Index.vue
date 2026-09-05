@@ -27,13 +27,13 @@ const breadcrumbs: BreadcrumbItem[] = [{ title: 'Deliveries', href: route('deliv
 </script>
 <template>
   <Head title="Deliveries" /><AppLayout :breadcrumbs="breadcrumbs"
-    ><div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+    ><div class="app-page">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Deliveries</h1>
-        <p class="mt-1 text-sm text-muted-foreground">Schedule and track customer deliveries.</p>
+        <h1 class="page-title">Deliveries</h1>
+        <p class="page-description">Schedule and track customer deliveries.</p>
       </div>
       <form
-        class="flex flex-wrap gap-3 rounded-lg border bg-card p-4"
+        class="surface-toolbar flex flex-wrap gap-3"
         @submit.prevent="
           router.get(route('deliveries.index'), filters, { preserveState: true, replace: true })
         "

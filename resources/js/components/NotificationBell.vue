@@ -38,16 +38,16 @@ const markAllRead = () =>
 <template>
   <DropdownMenu v-if="page.props.auth.user">
     <DropdownMenuTrigger as-child>
-      <Button variant="ghost" size="icon" class="relative" aria-label="Notifications">
+      <Button variant="ghost" size="icon" class="relative rounded-lg" aria-label="Notifications">
         <Bell class="size-5" />
         <span
           v-if="notifications.unread_count"
-          class="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground"
+          class="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full border-2 border-background bg-destructive text-[10px] font-semibold text-destructive-foreground"
           >{{ notifications.unread_count > 9 ? '9+' : notifications.unread_count }}</span
         >
       </Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" class="w-80">
+    <DropdownMenuContent align="end" class="w-80 rounded-xl border-border/80 p-1.5 shadow-xl">
       <div class="flex items-center justify-between px-2 py-1.5">
         <DropdownMenuLabel class="p-0">Notifications</DropdownMenuLabel>
         <button

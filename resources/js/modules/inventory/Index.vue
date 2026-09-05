@@ -48,13 +48,11 @@ const isLowStock = (product: RiceProduct) =>
   <Head title="Rice inventory" />
 
   <AppLayout :breadcrumbs="breadcrumbs">
-    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+    <div class="app-page">
       <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 class="text-2xl font-semibold tracking-tight">Rice inventory</h1>
-          <p class="mt-1 text-sm text-muted-foreground">
-            Manage rice products and available stock.
-          </p>
+          <h1 class="page-title">Rice inventory</h1>
+          <p class="page-description">Manage rice products and available stock.</p>
         </div>
         <div class="flex gap-2">
           <Button variant="outline" as-child
@@ -65,7 +63,7 @@ const isLowStock = (product: RiceProduct) =>
       </div>
 
       <form
-        class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-[1fr_180px_auto_auto]"
+        class="surface-toolbar grid gap-3 md:grid-cols-[1fr_180px_auto_auto]"
         @submit.prevent="applyFilters"
       >
         <Input
@@ -120,7 +118,7 @@ const isLowStock = (product: RiceProduct) =>
             <td class="px-4 py-3">{{ product.reserved_stock }}</td>
             <td class="px-4 py-3">
               <span
-                class="rounded-full px-2 py-1 text-xs"
+                class="status-pill"
                 :class="
                   product.is_active
                     ? 'bg-green-100 text-green-800'

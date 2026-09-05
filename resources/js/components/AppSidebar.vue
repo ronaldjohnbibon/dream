@@ -62,8 +62,13 @@ const mainNavItems = computed<NavItem[]>(() => {
 </script>
 
 <template>
-  <Sidebar v-if="!isCustomer || !isMobile" collapsible="icon" variant="inset">
-    <SidebarHeader>
+  <Sidebar
+    v-if="!isCustomer || !isMobile"
+    collapsible="icon"
+    variant="inset"
+    class="border-0 shadow-xl"
+  >
+    <SidebarHeader class="px-3 pb-4 pt-4">
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton size="lg" as-child>
@@ -75,11 +80,11 @@ const mainNavItems = computed<NavItem[]>(() => {
       </SidebarMenu>
     </SidebarHeader>
 
-    <SidebarContent>
+    <SidebarContent class="px-2">
       <NavMain :items="mainNavItems" />
     </SidebarContent>
 
-    <SidebarFooter>
+    <SidebarFooter class="border-t border-sidebar-border/70 p-3">
       <NavUser />
     </SidebarFooter>
   </Sidebar>

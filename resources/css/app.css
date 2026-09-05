@@ -4,88 +4,147 @@
 
 body,
 html {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-sans:
+    'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
 @layer base {
-    :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 3.9%;
-        --card: 0 0% 100%;
-        --card-foreground: 0 0% 3.9%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 0 0% 92.1%;
-        --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
-        --accent: 0 0% 96.1%;
-        --accent-foreground: 0 0% 9%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 92.8%;
-        --input: 0 0% 89.8%;
-        --ring: 0 0% 3.9%;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
-        --radius: 0.5rem;
-        --sidebar-background: 0 0% 98%;
-        --sidebar-foreground: 240 5.3% 26.1%;
-        --sidebar-primary: 0 0% 10%;
-        --sidebar-primary-foreground: 0 0% 98%;
-        --sidebar-accent: 0 0% 94%;
-        --sidebar-accent-foreground: 0 0% 30%;
-        --sidebar-border: 0 0% 91%;
-        --sidebar-ring: 217.2 91.2% 59.8%;
-    }
+  :root {
+    --background: 44 43% 97%;
+    --foreground: 150 26% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 150 26% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 150 26% 14%;
+    --primary: 151 42% 25%;
+    --primary-foreground: 45 55% 97%;
+    --secondary: 42 41% 91%;
+    --secondary-foreground: 151 30% 20%;
+    --muted: 43 29% 94%;
+    --muted-foreground: 150 10% 42%;
+    --accent: 42 48% 89%;
+    --accent-foreground: 151 35% 21%;
+    --destructive: 4 64% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 42 23% 86%;
+    --input: 42 22% 82%;
+    --ring: 151 42% 34%;
+    --chart-1: 151 42% 32%;
+    --chart-2: 37 84% 47%;
+    --chart-3: 192 50% 38%;
+    --chart-4: 10 63% 53%;
+    --chart-5: 276 39% 46%;
+    --radius: 0.875rem;
+    --sidebar-background: 151 35% 16%;
+    --sidebar-foreground: 45 43% 94%;
+    --sidebar-primary: 42 85% 61%;
+    --sidebar-primary-foreground: 151 40% 16%;
+    --sidebar-accent: 151 25% 23%;
+    --sidebar-accent-foreground: 45 55% 97%;
+    --sidebar-border: 151 20% 26%;
+    --sidebar-ring: 42 85% 61%;
+  }
 
-    .dark {
-        --background: 0 0% 3.9%;
-        --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
-        --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 0 0% 98%;
-        --primary-foreground: 0 0% 9%;
-        --secondary: 0 0% 14.9%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 6.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 84% 60%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
-        --ring: 0 0% 83.1%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
-        --sidebar-background: 0 0% 7%;
-        --sidebar-foreground: 0 0% 95.9%;
-        --sidebar-primary: 360, 100%, 100%;
-        --sidebar-primary-foreground: 0 0% 100%;
-        --sidebar-accent: 0 0% 15.9%;
-        --sidebar-accent-foreground: 240 4.8% 95.9%;
-        --sidebar-border: 0 0% 15.9%;
-        --sidebar-ring: 217.2 91.2% 59.8%;
-    }
+  .dark {
+    --background: 151 27% 9%;
+    --foreground: 44 38% 94%;
+    --card: 151 23% 13%;
+    --card-foreground: 44 38% 94%;
+    --popover: 151 23% 13%;
+    --popover-foreground: 44 38% 94%;
+    --primary: 42 85% 61%;
+    --primary-foreground: 151 40% 14%;
+    --secondary: 151 18% 20%;
+    --secondary-foreground: 44 38% 94%;
+    --muted: 151 18% 18%;
+    --muted-foreground: 43 16% 69%;
+    --accent: 151 18% 23%;
+    --accent-foreground: 44 38% 94%;
+    --destructive: 4 68% 57%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 151 16% 25%;
+    --input: 151 16% 29%;
+    --ring: 42 85% 61%;
+    --chart-1: 42 85% 61%;
+    --chart-2: 159 48% 54%;
+    --chart-3: 192 62% 58%;
+    --chart-4: 14 75% 62%;
+    --chart-5: 277 57% 69%;
+    --sidebar-background: 151 31% 11%;
+    --sidebar-foreground: 45 43% 94%;
+    --sidebar-primary: 42 85% 61%;
+    --sidebar-primary-foreground: 151 40% 14%;
+    --sidebar-accent: 151 19% 21%;
+    --sidebar-accent-foreground: 45 55% 97%;
+    --sidebar-border: 151 16% 24%;
+    --sidebar-ring: 42 85% 61%;
+  }
 }
 
 @layer base {
-    * {
-        @apply border-border;
-    }
+  * {
+    @apply border-border;
+  }
 
-    body {
-        @apply bg-background text-foreground;
-    }
+  body {
+    @apply bg-background text-foreground antialiased;
+    background-image: radial-gradient(
+      circle at top right,
+      hsl(var(--accent) / 0.32),
+      transparent 30rem
+    );
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  ::selection {
+    @apply bg-primary text-primary-foreground;
+  }
+
+  select,
+  textarea {
+    @apply rounded-lg border-input bg-background transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/25;
+  }
+
+  select {
+    @apply min-h-10 px-3 text-sm;
+  }
+
+  textarea {
+    @apply px-3 py-2 text-sm;
+  }
+
+  input[type='file'] {
+    @apply h-11 w-full cursor-pointer overflow-hidden rounded-lg border border-input bg-background p-0 text-sm text-muted-foreground shadow-sm transition-all file:mr-4 file:h-11 file:cursor-pointer file:border-0 file:border-r file:border-input file:bg-secondary file:px-4 file:text-sm file:font-semibold file:text-secondary-foreground file:transition-colors hover:file:bg-accent focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/25;
+  }
+}
+
+@layer components {
+  .app-page {
+    @apply mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8;
+  }
+
+  .page-title {
+    @apply text-2xl font-semibold tracking-[-0.025em] text-foreground sm:text-3xl;
+  }
+
+  .page-description {
+    @apply mt-1.5 max-w-2xl text-sm leading-6 text-muted-foreground;
+  }
+
+  .surface-toolbar {
+    @apply rounded-xl border border-border/80 bg-card/80 p-3 shadow-sm backdrop-blur-sm;
+  }
+
+  .status-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none;
+  }
+
+  .metric-card {
+    @apply relative overflow-hidden border-border/70 shadow-[0_10px_30px_-22px_hsl(var(--foreground)/0.45)];
+  }
+
+  .metric-card::after {
+    @apply absolute right-0 top-0 h-16 w-16 rounded-bl-[3rem] bg-primary/10 content-[''];
+  }
 }

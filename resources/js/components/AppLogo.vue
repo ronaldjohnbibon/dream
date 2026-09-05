@@ -16,7 +16,7 @@ const business = computed(() => page.props.business)
 
 <template>
   <div
-    class="flex aspect-square size-8 items-center justify-center overflow-hidden rounded-md bg-sidebar-primary text-sidebar-primary-foreground"
+    class="flex aspect-square size-9 items-center justify-center overflow-hidden rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-[0_8px_16px_-8px_hsl(var(--sidebar-primary)/0.8)]"
   >
     <img
       v-if="business.logo_url"
@@ -26,7 +26,9 @@ const business = computed(() => page.props.business)
     />
     <AppLogoIcon v-else class="size-5 fill-current text-white dark:text-black" />
   </div>
-  <div class="ml-1 grid flex-1 text-left text-sm">
-    <span class="mb-0.5 truncate font-semibold leading-none">{{ business.name }}</span>
+  <div class="ml-2 grid flex-1 text-left text-sm">
+    <span class="mb-0.5 truncate font-semibold leading-none tracking-[-0.015em]">{{
+      business.name
+    }}</span>
   </div>
 </template>

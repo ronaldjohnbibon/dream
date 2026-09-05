@@ -36,12 +36,14 @@ const handleOpenChange = (open: boolean) => {
 
 <template>
   <Dialog :open="open" @update:open="handleOpenChange">
-    <DialogContent>
+    <DialogContent class="rounded-2xl border-border/80 p-0 shadow-2xl">
       <DialogHeader>
-        <DialogTitle>{{ title }}</DialogTitle>
-        <DialogDescription>{{ description }}</DialogDescription>
+        <div class="rounded-t-2xl bg-destructive/10 px-6 py-5">
+          <DialogTitle>{{ title }}</DialogTitle>
+          <DialogDescription class="mt-1.5">{{ description }}</DialogDescription>
+        </div>
       </DialogHeader>
-      <DialogFooter>
+      <DialogFooter class="px-6 pb-6">
         <Button variant="outline" type="button" :disabled="processing" @click="emit('close')"
           >Cancel</Button
         >

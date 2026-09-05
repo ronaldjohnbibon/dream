@@ -78,16 +78,16 @@ const label = (value: string | null, labels: Record<string, string>) =>
   <Head title="Reports" />
 
   <AppLayout :breadcrumbs="breadcrumbs">
-    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+    <div class="app-page">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Reports</h1>
-        <p class="mt-1 text-sm text-muted-foreground">
+        <h1 class="page-title">Reports</h1>
+        <p class="page-description">
           Track sales, receivables, inventory, points, and estimated profit.
         </p>
       </div>
 
       <form
-        class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-2 xl:grid-cols-6"
+        class="surface-toolbar grid gap-3 md:grid-cols-2 xl:grid-cols-6"
         @submit.prevent="applyFilters"
       >
         <label class="grid gap-1 text-sm font-medium"

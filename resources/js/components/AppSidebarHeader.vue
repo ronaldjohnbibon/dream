@@ -32,10 +32,10 @@ const user = computed(() => page.props.auth.user as User)
 
 <template>
   <header
-    class="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-sidebar-border/70 px-4 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 md:px-4"
+    class="flex h-[4.5rem] shrink-0 items-center justify-between gap-2 border-b border-border/70 bg-background/80 px-4 backdrop-blur-xl transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-14 md:px-6"
   >
     <div class="flex items-center gap-2">
-      <SidebarTrigger v-if="!isCustomer" class="-ml-1" />
+      <SidebarTrigger v-if="!isCustomer" class="-ml-1 rounded-lg" />
       <template v-if="breadcrumbs.length > 0">
         <Breadcrumb>
           <BreadcrumbList :class="isCustomer ? 'hidden md:flex' : ''">
@@ -56,7 +56,7 @@ const user = computed(() => page.props.auth.user as User)
         </Breadcrumb>
       </template>
     </div>
-    <div class="flex items-center gap-1">
+    <div class="flex items-center gap-1.5">
       <NotificationBell />
       <DropdownMenu v-if="isCustomer && user">
         <DropdownMenuTrigger as-child>

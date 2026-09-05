@@ -10,11 +10,11 @@ defineProps<Props>()
 </script>
 
 <template>
-  <div class="mb-8 space-y-0.5">
-    <h2 class="text-xl font-semibold tracking-tight">{{ title }}</h2>
-    <p v-if="description" class="text-sm text-muted-foreground">
+  <div class="mb-8 space-y-1">
+    <h2 class="page-title text-xl">{{ title }}</h2>
+    <p v-if="description" class="text-sm leading-6 text-muted-foreground">
       {{ description }}
     </p>
   </div>
-  <Separator class="my-6" />
+  <Separator class="my-7" />
 </template>

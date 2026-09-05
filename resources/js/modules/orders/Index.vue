@@ -39,13 +39,13 @@ const statusClass = (status: DeliveryStatus) =>
 <template>
   <Head :title="canManage ? 'Orders' : 'My orders'" />
   <AppLayout :breadcrumbs="breadcrumbs"
-    ><div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+    ><div class="app-page">
       <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 class="text-2xl font-semibold tracking-tight">
+          <h1 class="page-title">
             {{ canManage ? 'Orders' : 'My orders' }}
           </h1>
-          <p class="mt-1 text-sm text-muted-foreground">
+          <p class="page-description">
             {{
               canManage
                 ? 'Review customer orders and delivery progress.'
@@ -58,7 +58,7 @@ const statusClass = (status: DeliveryStatus) =>
         >
       </div>
       <form
-        class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-[1fr_repeat(2,180px)_auto]"
+        class="surface-toolbar grid gap-3 md:grid-cols-[1fr_repeat(2,180px)_auto]"
         @submit.prevent="
           router.get(route('orders.index'), filters, { preserveState: true, replace: true })
         "
@@ -91,7 +91,7 @@ const statusClass = (status: DeliveryStatus) =>
           v-for="order in orders.data"
           :key="order.id"
           :href="route('orders.show', { order: order.id })"
-          class="block rounded-lg border bg-card p-4 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          class="block rounded-xl border border-border/80 bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <div class="flex items-start justify-between gap-3">
             <div>
@@ -163,7 +163,7 @@ const statusClass = (status: DeliveryStatus) =>
               <td class="px-4 py-3">
                 <span
                   v-if="order.delivery"
-                  class="rounded-full px-2 py-1 text-xs"
+                  class="status-pill"
                   :class="statusClass(order.delivery.status)"
                   >{{ deliveryStatusLabels[order.delivery.status] }}</span
                 >

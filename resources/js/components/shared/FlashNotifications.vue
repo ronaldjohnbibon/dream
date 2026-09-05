@@ -48,10 +48,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="fixed right-4 top-4 z-50 w-full max-w-sm space-y-3">
+  <div class="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-sm space-y-3">
     <div
       v-if="successMessage && dismissedSuccess !== successMessage"
-      class="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 shadow-lg"
+      class="flex items-center gap-3 rounded-xl border border-emerald-200/80 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900 shadow-[0_16px_40px_-20px_rgba(6,78,59,0.45)] dark:border-emerald-900 dark:bg-emerald-950/80 dark:text-emerald-100"
     >
       <span>{{ successMessage }}</span>
       <button
@@ -67,7 +67,7 @@ onBeforeUnmount(() => {
     <div
       v-if="errorMessages.length && dismissedErrors !== errorKey"
       role="alert"
-      class="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive shadow-lg"
+      class="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive shadow-[0_16px_40px_-20px_rgba(127,29,29,0.4)]"
     >
       <ul class="min-w-0 flex-1 space-y-1">
         <li v-for="message in errorMessages" :key="message">{{ message }}</li>

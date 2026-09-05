@@ -24,16 +24,16 @@ const unreadCount = computed(() => page.props.notifications?.unread_count ?? 0)
 <template>
   <nav
     aria-label="Customer navigation"
-    class="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur md:hidden"
+    class="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_24px_-16px_hsl(var(--foreground)/0.35)] backdrop-blur-xl md:hidden"
   >
     <ul class="mx-auto grid max-w-lg grid-cols-5 gap-1">
       <li v-for="item in items" :key="item.title">
         <Link
           :href="item.href"
-          class="relative flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1 text-[11px] font-medium transition-colors"
+          class="relative flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1 text-[11px] font-semibold transition-all"
           :class="
             isActive(item.href)
-              ? 'bg-primary text-primary-foreground'
+              ? '-translate-y-1 bg-primary text-primary-foreground shadow-[0_8px_16px_-10px_hsl(var(--primary)/0.9)]'
               : 'text-muted-foreground hover:bg-muted hover:text-foreground'
           "
           :aria-current="isActive(item.href) ? 'page' : undefined"
