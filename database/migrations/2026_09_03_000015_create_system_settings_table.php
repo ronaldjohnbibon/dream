@@ -27,14 +27,13 @@ return new class extends Migration
         });
 
         $now = now();
-        DB::table('delivery_areas')->insertOrIgnore([
+        $deliveryAreaId = DB::table('delivery_areas')->insertGetId([
             'name'         => 'Daang Hari',
             'delivery_fee' => 0,
             'is_active'    => true,
             'created_at'   => $now,
             'updated_at'   => $now,
         ]);
-        $daangHariId = DB::table('delivery_areas')->where('name', 'Daang Hari')->value('id');
 
         DB::table('system_settings')->insert([
             'id'                        => 1,
@@ -45,7 +44,7 @@ return new class extends Migration
             'pautang_max_active'        => 1,
             'pautang_max_sacks'         => 1,
             'pautang_grace_period_days' => 3,
-            'free_delivery_area_ids'    => json_encode($daangHariId ? [(int) $daangHariId] : []),
+            'free_delivery_area_ids'    => json_encode([$deliveryAreaId]),
             'low_stock_threshold'       => 5,
             'created_at'                => $now,
             'updated_at'                => $now,
@@ -54,6 +53,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('system_settings');
+        Schema::drop('system_settings');
     }
 };

@@ -65,6 +65,10 @@ class GcashPaymentController extends Controller
         $order->load('pautangInstallments');
         $installment = $this->requestedInstallment($attributes['installment'], $order);
         $this->ensureSubmittable($order, $installment);
+        $submissionLimit = $this->submissionLimit($installment);
+        if ($submissionLimit <= 0) {
+            throw ValidationException::withMessages(['payment' => 'A payment for this installment is already awaiting verification.']);
+        }
 
         $gcash = GcashSetting::query()->find(1);
         if (! $gcash?->isConfigured()) {
@@ -76,7 +80,7 @@ class GcashPaymentController extends Controller
 
         return Inertia::render('modules/payments/Create', [
             'order'       => $this->paymentOrderData($order),
-            'installment' => $this->installmentData($installment),
+            'installment' => $this->installmentData($installment, $submissionLimit),
             'gcash'       => ['account_name' => $gcash->account_name, 'account_number' => $gcash->account_number, 'qr_code_url' => $publicDisk->url($gcash->qr_code_path)],
         ]);
     }
@@ -90,6 +94,7 @@ class GcashPaymentController extends Controller
         try {
             $payment = DB::transaction(function () use ($request, $order, $attributes, &$screenshotPath, &$created): GcashPayment {
                 $lockedOrder     = Order::query()->lockForUpdate()->findOrFail($order->id);
+                $this->ensureCustomerOwnsOrder($request, $lockedOrder);
                 $existingPayment = GcashPayment::query()
                     ->where('order_id', $lockedOrder->id)
                     ->where('customer_id', $request->user()->id)
@@ -107,8 +112,8 @@ class GcashPaymentController extends Controller
                 }
 
                 $amount = round((float) $attributes['amount'], 2);
-                if ($amount > round((float) $installment->remaining_balance, 2)) {
-                    throw ValidationException::withMessages(['amount' => 'Payment cannot be greater than this installment\'s remaining balance.']);
+                if ($amount > $this->submissionLimit($installment)) {
+                    throw ValidationException::withMessages(['amount' => 'Payment cannot be greater than the installment balance available for verification.']);
                 }
 
                 $referenceNumber = strtoupper(trim($attributes['reference_number']));
@@ -128,6 +133,13 @@ class GcashPaymentController extends Controller
                     'screenshot_path'        => $screenshotPath,
                     'payment_date'           => $attributes['payment_date'],
                 ]);
+                $this->activityLogs->record(
+                    $request->user(),
+                    'payments',
+                    'created',
+                    $payment,
+                    "GCash payment #{$payment->id} for order {$lockedOrder->order_number} submitted for verification.",
+                );
                 $created = true;
 
                 return $payment;
@@ -191,7 +203,7 @@ class GcashPaymentController extends Controller
                 $this->ensureSubmittable($order, $installment);
 
                 $amount = round((float) $payment->amount, 2);
-                if ($installment->order_id !== $order->id || $amount > round((float) $installment->remaining_balance, 2)) {
+                if ($payment->customer_id !== $order->customer_id || $installment->order_id !== $order->id || $amount > round((float) $installment->remaining_balance, 2)) {
                     throw ValidationException::withMessages(['amount' => 'This payment is greater than the installment\'s current remaining balance. Reject it and ask the customer to submit a new payment.']);
                 }
 
@@ -344,7 +356,8 @@ class GcashPaymentController extends Controller
     private function updatePautangOrderTotals(Order $order, Collection $installments): void
     {
         $amountPaid    = round((float) $installments->sum('amount_paid'), 2);
-        $remaining     = round((float) $installments->sum('remaining_balance'), 2);
+        $amountDue     = round((float) $installments->sum('amount_due'), 2);
+        $remaining     = round(max(0, $amountDue - $amountPaid), 2);
         $paymentStatus = $remaining <= 0
             ? 'paid'
             : ($installments->contains(fn (PautangInstallment $item) => $item->currentStatus() === 'overdue')
@@ -368,13 +381,24 @@ class GcashPaymentController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function installmentData(PautangInstallment $installment): array
+    private function submissionLimit(PautangInstallment $installment): float
+    {
+        $pendingAmount = (float) GcashPayment::query()
+            ->where('pautang_installment_id', $installment->id)
+            ->where('status', 'pending_verification')
+            ->sum('amount');
+
+        return round(max(0, (float) $installment->remaining_balance - $pendingAmount), 2);
+    }
+
+    private function installmentData(PautangInstallment $installment, float $submissionLimit): array
     {
         return [
             'id'                 => $installment->id,
             'installment_number' => $installment->installment_number,
             'amount_due'         => $installment->amount_due,
             'remaining_balance'  => $installment->remaining_balance,
+            'submission_limit'   => number_format($submissionLimit, 2, '.', ''),
         ];
     }
 

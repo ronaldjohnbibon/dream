@@ -13,12 +13,15 @@ return new class extends Migration
             $table->unsignedInteger('completed_order_points')->default(10);
             $table->unsignedInteger('on_time_payment_points')->default(10);
             $table->decimal('peso_per_point', 12, 2)->default(0.10);
+            $table->boolean('is_enabled')->default(true);
+            $table->unsignedInteger('minimum_redemption')->default(1);
+            $table->unsignedInteger('maximum_points_usable')->default(1000);
             $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('points_settings');
+        Schema::drop('points_settings');
     }
 };

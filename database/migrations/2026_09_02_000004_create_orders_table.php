@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
+            $table->uuid('idempotency_key')->nullable()->unique('orders_idempotency_key_unique');
             $table->string('order_number')->nullable()->unique();
             $table->foreignId('customer_id')->constrained('users')->restrictOnDelete();
             $table->foreignId('rice_product_id')->constrained()->restrictOnDelete();
@@ -18,8 +19,11 @@ return new class extends Migration
             $table->decimal('subtotal', 12, 2);
             $table->unsignedInteger('points_used')->default(0);
             $table->decimal('points_discount', 12, 2)->default(0);
+            $table->decimal('delivery_fee', 12, 2)->default(0);
             $table->decimal('final_amount', 12, 2);
-            $table->string('payment_type', 20)->index();
+            $table->decimal('amount_paid', 12, 2)->default(0);
+            $table->decimal('remaining_balance', 12, 2)->default(0);
+            $table->enum('payment_type', ['pautang'])->default('pautang')->index();
             $table->text('delivery_address');
             $table->string('delivery_area');
             $table->date('order_date')->index();
@@ -35,6 +39,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('orders');
+        Schema::drop('orders');
     }
 };

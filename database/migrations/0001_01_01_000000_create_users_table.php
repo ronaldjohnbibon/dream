@@ -15,8 +15,12 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
+            $table->string('mobile_number')->nullable();
+            $table->text('complete_address')->nullable();
+            $table->string('delivery_area')->nullable();
             $table->string('password');
             $table->boolean('is_admin')->default(false)->index();
+            $table->string('account_status')->default('good_standing')->index();
             $table->rememberToken();
             $table->timestamps();
         });
@@ -42,8 +46,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
-        Schema::dropIfExists('sessions');
+        Schema::drop('sessions');
+        Schema::drop('password_reset_tokens');
+        Schema::drop('users');
     }
 };

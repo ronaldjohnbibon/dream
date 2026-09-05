@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('points_ledgers', function (Blueprint $table) {
             $table->id();
+            $table->uuid('idempotency_key')->nullable()->unique('points_ledgers_idempotency_key_unique');
             $table->foreignId('customer_id')->constrained('users')->restrictOnDelete();
             $table->foreignId('order_id')->nullable()->constrained()->restrictOnDelete();
             $table->foreignId('pautang_installment_id')->nullable()->constrained()->restrictOnDelete();
@@ -28,6 +29,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('points_ledgers');
+        Schema::drop('points_ledgers');
     }
 };

@@ -14,6 +14,7 @@ const props = defineProps<{
     installment_number: number
     amount_due: string
     remaining_balance: string
+    submission_limit: string
   }
   gcash: { account_name: string; account_number: string; qr_code_url: string }
 }>()
@@ -35,7 +36,7 @@ const form = useForm({
   payment_date: new Date().toISOString().slice(0, 10),
 })
 const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' })
-const paymentLimit = computed(() => props.installment.remaining_balance)
+const paymentLimit = computed(() => props.installment.submission_limit)
 const paymentError = computed(() => (form.errors as Record<string, string>).payment)
 
 const submit = () =>
@@ -78,8 +79,8 @@ const submit = () =>
           <CardHeader
             ><CardTitle>Payment details</CardTitle
             ><CardDescription
-              >Give {{ installment.installment_number }} · Remaining
-              {{ currency.format(Number(installment.remaining_balance)) }}</CardDescription
+              >Give {{ installment.installment_number }} · Available for submission
+              {{ currency.format(Number(installment.submission_limit)) }}</CardDescription
             ></CardHeader
           >
           <CardContent>

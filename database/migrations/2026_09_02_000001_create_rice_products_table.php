@@ -18,7 +18,6 @@ return new class extends Migration
             $table->decimal('selling_price', 12, 2);
             $table->unsignedInteger('available_stock')->default(0);
             $table->unsignedInteger('reserved_stock')->default(0);
-            $table->unsignedInteger('reorder_level')->default(0);
             $table->boolean('is_active')->default(true)->index();
             $table->timestamps();
         });
@@ -26,6 +25,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('rice_products');
+        Schema::drop('rice_products');
     }
 };

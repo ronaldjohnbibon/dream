@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('gcash_payments', function (Blueprint $table) {
             $table->id();
+            $table->uuid('idempotency_key')->nullable()->unique('gcash_payments_idempotency_key_unique');
             $table->foreignId('order_id')->constrained()->restrictOnDelete();
             $table->foreignId('pautang_installment_id')->nullable()->constrained()->restrictOnDelete();
             $table->foreignId('customer_id')->constrained('users')->restrictOnDelete();
@@ -27,11 +28,12 @@ return new class extends Migration
             $table->index(['order_id', 'status']);
             $table->index(['pautang_installment_id', 'status']);
             $table->index(['customer_id', 'status']);
+            $table->unique('reference_number', 'gcash_payments_reference_number_unique');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('gcash_payments');
+        Schema::drop('gcash_payments');
     }
 };

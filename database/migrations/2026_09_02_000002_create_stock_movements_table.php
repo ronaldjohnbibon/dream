@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('stock_movements', function (Blueprint $table) {
             $table->id();
+            $table->uuid('idempotency_key')->nullable()->unique('stock_movements_idempotency_key_unique');
             $table->foreignId('rice_product_id')->constrained()->restrictOnDelete();
             $table->unsignedInteger('quantity');
             $table->string('type', 30)->index();
@@ -19,11 +20,13 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
             $table->timestamps();
+
+            $table->unique(['rice_product_id', 'order_id', 'type'], 'stock_movements_order_type_unique');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('stock_movements');
+        Schema::drop('stock_movements');
     }
 };

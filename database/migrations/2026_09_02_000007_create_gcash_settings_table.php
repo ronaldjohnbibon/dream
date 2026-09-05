@@ -11,12 +11,14 @@ return new class extends Migration
         Schema::create('gcash_settings', function (Blueprint $table) {
             $table->id();
             $table->string('qr_code_path')->nullable();
+            $table->string('account_name')->nullable();
+            $table->string('account_number')->nullable();
             $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('gcash_settings');
+        Schema::drop('gcash_settings');
     }
 };
