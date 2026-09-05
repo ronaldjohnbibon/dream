@@ -4,6 +4,7 @@ namespace App\Modules\Settings\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\File;
 
 class UpdateSystemSettingRequest extends FormRequest
 {
@@ -16,13 +17,25 @@ class UpdateSystemSettingRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'business_name'             => ['required', 'string', 'max:255'],
-            'logo'                      => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'contact_number'            => ['nullable', 'string', 'max:50'],
-            'address'                   => ['nullable', 'string', 'max:2000'],
-            'gcash_account_name'        => ['nullable', 'string', 'max:255'],
-            'gcash_account_number'      => ['nullable', 'string', 'regex:/^(?:\+63|0)9\d{9}$/'],
-            'gcash_qr_code'             => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'business_name' => ['required', 'string', 'max:255'],
+            'logo'          => [
+                'nullable',
+                File::image()
+                    ->types(['image/jpeg', 'image/png', 'image/webp'])
+                    ->extensions(['jpg', 'jpeg', 'png', 'webp'])
+                    ->max('5mb'),
+            ],
+            'contact_number'       => ['nullable', 'string', 'max:50'],
+            'address'              => ['nullable', 'string', 'max:2000'],
+            'gcash_account_name'   => ['nullable', 'string', 'max:255'],
+            'gcash_account_number' => ['nullable', 'string', 'regex:/^(?:\+63|0)9\d{9}$/'],
+            'gcash_qr_code'        => [
+                'nullable',
+                File::image()
+                    ->types(['image/jpeg', 'image/png', 'image/webp'])
+                    ->extensions(['jpg', 'jpeg', 'png', 'webp'])
+                    ->max('5mb'),
+            ],
             'pautang_enabled'           => ['required', 'boolean'],
             'pautang_installments'      => ['required', 'integer', 'min:1', 'max:12'],
             'pautang_payment_term_days' => ['required', 'integer', 'min:1', 'max:365', 'gte:pautang_installments'],

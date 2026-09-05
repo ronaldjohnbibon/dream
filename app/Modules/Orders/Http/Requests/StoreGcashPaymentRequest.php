@@ -4,6 +4,7 @@ namespace App\Modules\Orders\Http\Requests;
 
 use App\Modules\Orders\Models\Order;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rules\File;
 
 class StoreGcashPaymentRequest extends FormRequest
 {
@@ -25,8 +26,14 @@ class StoreGcashPaymentRequest extends FormRequest
             'pautang_installment_id' => ['required', 'integer', 'exists:pautang_installments,id'],
             'amount'                 => ['required', 'numeric', 'min:0.01', 'decimal:0,2'],
             'reference_number'       => ['required', 'string', 'regex:/^\d{13}$/'],
-            'screenshot'             => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'payment_date'           => ['required', 'date', 'before_or_equal:today'],
+            'screenshot'             => [
+                'required',
+                File::image()
+                    ->types(['image/jpeg', 'image/png'])
+                    ->extensions(['jpg', 'jpeg', 'png'])
+                    ->max('5mb'),
+            ],
+            'payment_date' => ['required', 'date', 'before_or_equal:today'],
         ];
     }
 }

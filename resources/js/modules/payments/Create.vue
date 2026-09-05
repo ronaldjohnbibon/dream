@@ -128,7 +128,7 @@ const submit = () =>
                 ><input
                   id="screenshot"
                   type="file"
-                  accept="image/jpeg,image/png,image/webp"
+                  accept="image/jpeg,image/png"
                   class="block w-full text-sm"
                   required
                   @change="
