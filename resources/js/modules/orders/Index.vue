@@ -57,7 +57,9 @@ const statusClass = (status: DeliveryStatus) =>
           ><Link :href="route('orders.create')">Order rice</Link></Button
         >
       </div>
+
       <form
+        v-if="canManage"
         class="surface-toolbar grid gap-3 md:grid-cols-[1fr_repeat(2,180px)_auto]"
         @submit.prevent="
           router.get(route('orders.index'), filters, { preserveState: true, replace: true })
@@ -81,6 +83,7 @@ const statusClass = (status: DeliveryStatus) =>
           </option></select
         ><Button type="submit" variant="outline">Apply filters</Button>
       </form>
+
       <div v-if="!canManage" class="space-y-3 md:hidden">
         <Card v-if="orders.data.length === 0"
           ><CardContent class="py-10 text-center text-sm text-muted-foreground"

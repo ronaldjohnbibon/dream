@@ -6,7 +6,7 @@ import type { DefineComponent } from 'vue'
 import { createApp, h } from 'vue'
 import { ZiggyVue } from '../../vendor/tightenco/ziggy'
 
-const appName = import.meta.env.VITE_APP_NAME || 'Business Starter'
+const appName = import.meta.env.VITE_APP_NAME || 'ARice'
 const pageComponents = {
   ...import.meta.glob<DefineComponent>('./pages/**/*.vue'),
   ...import.meta.glob<DefineComponent>('./modules/**/*.vue'),
