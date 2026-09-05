@@ -107,7 +107,12 @@ const reject = () =>
                   />
                 </FormField>
                 <p v-if="approvalError" class="text-sm text-destructive">{{ approvalError }}</p>
-                <Button type="submit" :disabled="approveForm.processing">Approve payment</Button>
+                <Button
+                  type="submit"
+                  :loading="approveForm.processing"
+                  loading-text="Approving payment…"
+                  >Approve payment</Button
+                >
               </form>
               <form class="space-y-4" @submit.prevent="reject">
                 <FormField
@@ -123,7 +128,11 @@ const reject = () =>
                     class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     required
                   /></FormField
-                ><Button type="submit" variant="destructive" :disabled="rejectForm.processing"
+                ><Button
+                  type="submit"
+                  variant="destructive"
+                  :loading="rejectForm.processing"
+                  loading-text="Rejecting payment…"
                   >Reject payment</Button
                 >
               </form></CardContent

@@ -18,6 +18,7 @@ const props = defineProps<{
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Logs', href: route('activity-logs.index') }]
 const filters = ref<ActivityLogFilters>({ ...props.filters })
+const filtering = ref(false)
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',
@@ -26,7 +27,12 @@ const label = (value: string) =>
   value.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase())
 
 const applyFilters = () => {
-  router.get(route('activity-logs.index'), filters.value, { preserveState: true, replace: true })
+  router.get(route('activity-logs.index'), filters.value, {
+    preserveState: true,
+    replace: true,
+    onStart: () => (filtering.value = true),
+    onFinish: () => (filtering.value = false),
+  })
 }
 </script>
 
@@ -67,7 +73,9 @@ const applyFilters = () => {
             {{ label(action) }}
           </option>
         </select>
-        <Button type="submit" variant="outline">Apply filters</Button>
+        <Button type="submit" variant="outline" :loading="filtering" loading-text="Applying…"
+          >Apply filters</Button
+        >
       </form>
 
       <DataTable>

@@ -69,7 +69,9 @@ const submit = () =>
                 required
               />
             </FormField>
-            <Button :disabled="form.processing">Save password</Button>
+            <Button :loading="form.processing" loading-text="Saving password…"
+              >Save password</Button
+            >
           </form>
         </CardContent>
       </Card>

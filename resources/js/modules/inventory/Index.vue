@@ -19,6 +19,8 @@ const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Rice inventory', href: route('rice-products.index') },
 ]
 const filters = ref<ProductFilters>({ ...props.filters })
+const filtering = ref(false)
+const updatingProductId = ref<number | null>(null)
 const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' })
 
 const applyFilters = () => {
@@ -28,7 +30,12 @@ const applyFilters = () => {
       ...filters.value,
       low_stock: filters.value.low_stock ? '1' : '0',
     },
-    { preserveState: true, replace: true }
+    {
+      preserveState: true,
+      replace: true,
+      onStart: () => (filtering.value = true),
+      onFinish: () => (filtering.value = false),
+    }
   )
 }
 
@@ -36,7 +43,11 @@ const toggleStatus = (product: RiceProduct) => {
   router.patch(
     route('rice-products.status', { riceProduct: product.id }),
     {},
-    { preserveScroll: true }
+    {
+      preserveScroll: true,
+      onStart: () => (updatingProductId.value = product.id),
+      onFinish: () => (updatingProductId.value = null),
+    }
   )
 }
 
@@ -83,7 +94,9 @@ const isLowStock = (product: RiceProduct) =>
           <input v-model="filters.low_stock" type="checkbox" class="size-4 rounded border-input" />
           Low stock
         </label>
-        <Button type="submit" variant="outline">Apply filters</Button>
+        <Button type="submit" variant="outline" :loading="filtering" loading-text="Applying…"
+          >Apply filters</Button
+        >
       </form>
 
       <DataTable>
@@ -145,9 +158,14 @@ const isLowStock = (product: RiceProduct) =>
                     >Edit</Link
                   ></Button
                 >
-                <Button size="sm" variant="ghost" @click="toggleStatus(product)">{{
-                  product.is_active ? 'Deactivate' : 'Activate'
-                }}</Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  :loading="updatingProductId === product.id"
+                  :loading-text="product.is_active ? 'Deactivating…' : 'Activating…'"
+                  @click="toggleStatus(product)"
+                  >{{ product.is_active ? 'Deactivate' : 'Activate' }}</Button
+                >
               </div>
             </td>
           </tr>

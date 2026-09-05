@@ -21,10 +21,16 @@ const props = defineProps<{
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Customers', href: route('customers.index') }]
 const filters = ref<CustomerFilters>({ ...props.filters })
+const filtering = ref(false)
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
 
 const applyFilters = () => {
-  router.get(route('customers.index'), filters.value, { preserveState: true, replace: true })
+  router.get(route('customers.index'), filters.value, {
+    preserveState: true,
+    replace: true,
+    onStart: () => (filtering.value = true),
+    onFinish: () => (filtering.value = false),
+  })
 }
 
 const sortBy = (sort: CustomerFilters['sort']) => {
@@ -83,7 +89,9 @@ const statusClass = (status: CustomerStatus) =>
           <option value="overdue">Overdue</option>
           <option value="suspended">Suspended</option>
         </select>
-        <Button type="submit" variant="outline">Apply filters</Button>
+        <Button type="submit" variant="outline" :loading="filtering" loading-text="Applying…"
+          >Apply filters</Button
+        >
       </form>
 
       <DataTable>

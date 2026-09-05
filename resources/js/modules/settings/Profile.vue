@@ -33,7 +33,7 @@ const submit = () => form.patch(route('profile.update'), { preserveScroll: true 
             <FormField id="email" label="Email address" :error="form.errors.email" required>
               <Input id="email" v-model="form.email" type="email" autocomplete="email" required />
             </FormField>
-            <Button :disabled="form.processing">Save profile</Button>
+            <Button :loading="form.processing" loading-text="Saving profile…">Save profile</Button>
           </form>
         </CardContent>
       </Card>

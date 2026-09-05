@@ -140,7 +140,11 @@ const submit = () =>
               <div
                 class="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 -mx-6 -mb-6 border-t bg-card/95 p-4 backdrop-blur sm:static sm:mx-0 sm:mb-0 sm:border-0 sm:bg-transparent sm:p-0"
               >
-                <Button class="w-full sm:w-auto" type="submit" :disabled="form.processing"
+                <Button
+                  class="w-full sm:w-auto"
+                  type="submit"
+                  :loading="form.processing"
+                  loading-text="Submitting payment…"
                   >Submit for verification</Button
                 >
               </div>

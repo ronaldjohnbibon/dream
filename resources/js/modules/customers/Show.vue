@@ -162,7 +162,12 @@ const submitAdjustment = () => {
             @click="suspendDialogOpen = true"
             >Suspend customer</Button
           >
-          <Button v-else variant="outline" :disabled="reactivating" @click="reactivateCustomer"
+          <Button
+            v-else
+            variant="outline"
+            :loading="reactivating"
+            loading-text="Reactivating…"
+            @click="reactivateCustomer"
             >Reactivate customer</Button
           >
           <Button as-child
@@ -303,7 +308,12 @@ const submitAdjustment = () => {
               required
               ><Input id="adjustment-reason" v-model="adjustment.reason" maxlength="1000" required
             /></FormField>
-            <Button type="submit" :disabled="adjustment.processing">Record adjustment</Button>
+            <Button
+              type="submit"
+              :loading="adjustment.processing"
+              loading-text="Recording adjustment…"
+              >Record adjustment</Button
+            >
           </form>
         </CardContent>
       </Card>
@@ -486,6 +496,7 @@ const submitAdjustment = () => {
       :description="`Suspend ${customer.name}? They will no longer be able to access the application.`"
       confirm-label="Suspend customer"
       :processing="suspending"
+      variant="warning"
       @confirm="suspendCustomer"
       @close="suspendDialogOpen = false"
     />

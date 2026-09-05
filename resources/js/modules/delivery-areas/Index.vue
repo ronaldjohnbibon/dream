@@ -15,6 +15,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 const createForm = useForm({ name: '', delivery_fee: '0.00' })
 const editing = ref<number | null>(null)
 const editForm = useForm({ name: '', delivery_fee: '' })
+const updatingAreaId = ref<number | null>(null)
 const startEdit = (area: Required<DeliveryArea>) => {
   editing.value = area.id
   editForm.name = area.name
@@ -26,10 +27,14 @@ const saveEdit = (area: Required<DeliveryArea>) =>
       editing.value = null
     },
   })
-const toggle = (area: Required<DeliveryArea>) =>
-  router.patch(route('delivery-areas.status', { deliveryArea: area.id }), {
-    is_active: !area.is_active,
-  })
+const toggle = (area: Required<DeliveryArea>) => {
+  updatingAreaId.value = area.id
+  router.patch(
+    route('delivery-areas.status', { deliveryArea: area.id }),
+    { is_active: !area.is_active },
+    { onFinish: () => (updatingAreaId.value = null) }
+  )
+}
 const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' })
 </script>
 <template>
@@ -68,7 +73,9 @@ const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: '
                 required
             /></FormField>
             <div class="self-end">
-              <Button type="submit" :disabled="createForm.processing">Add area</Button>
+              <Button type="submit" :loading="createForm.processing" loading-text="Adding area…"
+                >Add area</Button
+              >
             </div>
           </form></CardContent
         ></Card
@@ -93,7 +100,11 @@ const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: '
                   type="number"
                   min="0"
                   step="0.01" /></FormField
-              ><Button :disabled="editForm.processing" @click="saveEdit(area)">Save</Button
+              ><Button
+                :loading="editForm.processing"
+                loading-text="Saving area…"
+                @click="saveEdit(area)"
+                >Save</Button
               ><Button variant="outline" @click="editing = null">Cancel</Button></template
             ><template v-else
               ><div>
@@ -104,9 +115,13 @@ const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: '
               </div>
               <p class="font-medium">{{ currency.format(Number(area.delivery_fee)) }}</p>
               <Button variant="outline" @click="startEdit(area)">Edit</Button
-              ><Button :variant="area.is_active ? 'secondary' : 'default'" @click="toggle(area)">{{
-                area.is_active ? 'Deactivate' : 'Activate'
-              }}</Button></template
+              ><Button
+                :variant="area.is_active ? 'secondary' : 'default'"
+                :loading="updatingAreaId === area.id"
+                :loading-text="area.is_active ? 'Deactivating…' : 'Activating…'"
+                @click="toggle(area)"
+                >{{ area.is_active ? 'Deactivate' : 'Activate' }}</Button
+              ></template
             >
           </div></CardContent
         ></Card

@@ -22,8 +22,16 @@ const props = defineProps<{
   filters: { status: 'all' | DeliveryStatus; delivery_date: string }
 }>()
 const filters = ref({ ...props.filters })
+const filtering = ref(false)
 const statuses = Object.keys(deliveryStatusLabels) as DeliveryStatus[]
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Deliveries', href: route('deliveries.index') }]
+const applyFilters = () =>
+  router.get(route('deliveries.index'), filters.value, {
+    preserveState: true,
+    replace: true,
+    onStart: () => (filtering.value = true),
+    onFinish: () => (filtering.value = false),
+  })
 </script>
 <template>
   <Head title="Deliveries" /><AppLayout :breadcrumbs="breadcrumbs"
@@ -32,12 +40,7 @@ const breadcrumbs: BreadcrumbItem[] = [{ title: 'Deliveries', href: route('deliv
         <h1 class="page-title">Deliveries</h1>
         <p class="page-description">Schedule and track customer deliveries.</p>
       </div>
-      <form
-        class="surface-toolbar flex flex-wrap gap-3"
-        @submit.prevent="
-          router.get(route('deliveries.index'), filters, { preserveState: true, replace: true })
-        "
-      >
+      <form class="surface-toolbar flex flex-wrap gap-3" @submit.prevent="applyFilters">
         <select
           v-model="filters.status"
           class="h-9 rounded-md border border-input bg-background px-3 text-sm"
@@ -49,6 +52,8 @@ const breadcrumbs: BreadcrumbItem[] = [{ title: 'Deliveries', href: route('deliv
         ><Input v-model="filters.delivery_date" type="date" class="max-w-48" /><Button
           type="submit"
           variant="outline"
+          :loading="filtering"
+          loading-text="Applying…"
           >Apply filters</Button
         >
       </form>

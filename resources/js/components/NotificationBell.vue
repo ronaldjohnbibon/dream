@@ -11,10 +11,11 @@ import {
 import type { CustomerNotification, SharedData } from '@/types'
 import { router, usePage } from '@inertiajs/vue3'
 import { Bell } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const page = usePage<SharedData>()
 const notifications = computed(() => page.props.notifications ?? { unread_count: 0, recent: [] })
+const markingAllRead = ref(false)
 
 const openNotification = (notification: CustomerNotification) => {
   const visit = () => router.visit(notification.action_url ?? route('notifications.index'))
@@ -31,8 +32,17 @@ const openNotification = (notification: CustomerNotification) => {
   )
 }
 
-const markAllRead = () =>
-  router.patch(route('notifications.read-all'), {}, { preserveScroll: true })
+const markAllRead = () => {
+  markingAllRead.value = true
+  router.patch(
+    route('notifications.read-all'),
+    {},
+    {
+      preserveScroll: true,
+      onFinish: () => (markingAllRead.value = false),
+    }
+  )
+}
 </script>
 
 <template>
@@ -53,10 +63,11 @@ const markAllRead = () =>
         <button
           v-if="notifications.unread_count"
           type="button"
-          class="text-xs text-primary hover:underline"
+          class="text-xs text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+          :disabled="markingAllRead"
           @click="markAllRead"
         >
-          Mark all as read
+          {{ markingAllRead ? 'Marking…' : 'Mark all as read' }}
         </button>
       </div>
       <DropdownMenuSeparator />

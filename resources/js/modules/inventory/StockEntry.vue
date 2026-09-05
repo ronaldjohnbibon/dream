@@ -124,7 +124,9 @@ const submit = () =>
             </FormField>
 
             <div class="flex justify-end">
-              <Button type="submit" :disabled="form.processing">Record movement</Button>
+              <Button type="submit" :loading="form.processing" loading-text="Recording movement…"
+                >Record movement</Button
+              >
             </div>
           </form>
         </CardContent>

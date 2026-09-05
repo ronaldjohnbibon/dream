@@ -61,7 +61,9 @@ const emit = defineEmits<{
     </FormField>
 
     <div class="flex justify-end">
-      <Button type="submit" :disabled="form.processing">{{ submitLabel }}</Button>
+      <Button type="submit" :loading="form.processing" loading-text="Saving administrator…">{{
+        submitLabel
+      }}</Button>
     </div>
   </form>
 </template>

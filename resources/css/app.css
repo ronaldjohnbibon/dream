@@ -120,6 +120,20 @@ html {
 }
 
 @layer components {
+  .feedback-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 25%,
+      hsl(var(--primary) / 0.1) 50%,
+      transparent 75%
+    );
+    transform: translateX(-100%);
+    animation: feedback-shimmer 1.8s ease-in-out infinite;
+  }
+
   .app-page {
     @apply mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8;
   }
@@ -146,5 +160,17 @@ html {
 
   .metric-card::after {
     @apply absolute right-0 top-0 h-16 w-16 rounded-bl-[3rem] bg-primary/10 content-[''];
+  }
+}
+
+@keyframes feedback-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feedback-shimmer::after {
+    animation: none;
   }
 }

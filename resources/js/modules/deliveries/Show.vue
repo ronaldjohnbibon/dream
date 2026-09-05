@@ -130,7 +130,9 @@ const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: '
               />
             </FormField>
             <div class="sm:col-span-2">
-              <Button type="submit" :disabled="form.processing">Save delivery</Button>
+              <Button type="submit" :loading="form.processing" loading-text="Saving delivery…"
+                >Save delivery</Button
+              >
             </div>
           </form></CardContent
         ><CardContent v-else class="grid gap-4 text-sm sm:grid-cols-2"

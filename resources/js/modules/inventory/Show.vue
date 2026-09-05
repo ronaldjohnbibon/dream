@@ -6,6 +6,7 @@ import AppLayout from '@/layouts/AppLayout.vue'
 import { movementTypeLabels, type RiceProduct, type StockMovement } from '@/modules/inventory/types'
 import type { BreadcrumbItem } from '@/types'
 import { Head, Link, router } from '@inertiajs/vue3'
+import { ref } from 'vue'
 
 const props = defineProps<{
   product: RiceProduct
@@ -24,12 +25,17 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',
 })
+const updatingStatus = ref(false)
 
 const toggleStatus = () => {
   router.patch(
     route('rice-products.status', { riceProduct: props.product.id }),
     {},
-    { preserveScroll: true }
+    {
+      preserveScroll: true,
+      onStart: () => (updatingStatus.value = true),
+      onFinish: () => (updatingStatus.value = false),
+    }
   )
 }
 
@@ -57,9 +63,13 @@ const movementClass = (movement: StockMovement) =>
           <p class="mt-1 text-sm text-muted-foreground">{{ product.brand }} · 25kg sack</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <Button variant="outline" @click="toggleStatus">{{
-            product.is_active ? 'Deactivate' : 'Activate'
-          }}</Button>
+          <Button
+            variant="outline"
+            :loading="updatingStatus"
+            :loading-text="product.is_active ? 'Deactivating…' : 'Activating…'"
+            @click="toggleStatus"
+            >{{ product.is_active ? 'Deactivate' : 'Activate' }}</Button
+          >
           <Button variant="outline" as-child
             ><Link :href="route('rice-products.edit', { riceProduct: product.id })"
               >Edit</Link

@@ -390,7 +390,9 @@ const submit = () => form.post(route('system-settings.update'), { forceFormData:
         </Card>
 
         <div class="flex justify-end">
-          <Button type="submit" :disabled="form.processing">Save system settings</Button>
+          <Button type="submit" :loading="form.processing" loading-text="Saving settings…"
+            >Save system settings</Button
+          >
         </div>
       </form>
     </SettingsLayout>

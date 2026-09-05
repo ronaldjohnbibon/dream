@@ -46,6 +46,7 @@ const filters = ref({
   ...props.filters,
   customer_id: props.filters.customer_id ? String(props.filters.customer_id) : '',
 })
+const filtering = ref(false)
 const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' })
 const orderStatusLabels: Record<string, string> = {
   pending: 'Pending',
@@ -68,8 +69,21 @@ const agingTotal = computed(() =>
   Object.values(props.aging).reduce((total, bucket) => total + Number(bucket.amount), 0)
 )
 const applyFilters = () =>
-  router.get(route('reports.index'), filters.value, { preserveState: true, replace: true })
-const resetFilters = () => router.get(route('reports.index'))
+  router.get(route('reports.index'), filters.value, {
+    preserveState: true,
+    replace: true,
+    onStart: () => (filtering.value = true),
+    onFinish: () => (filtering.value = false),
+  })
+const resetFilters = () =>
+  router.get(
+    route('reports.index'),
+    {},
+    {
+      onStart: () => (filtering.value = true),
+      onFinish: () => (filtering.value = false),
+    }
+  )
 const label = (value: string | null, labels: Record<string, string>) =>
   value ? (labels[value] ?? value.replaceAll('_', ' ')) : '—'
 </script>
@@ -144,8 +158,11 @@ const label = (value: string | null, labels: Record<string, string>) =>
           </select></label
         >
         <div class="flex items-end gap-2 xl:col-span-6">
-          <Button type="submit" variant="outline">Apply filters</Button
-          ><Button type="button" variant="ghost" @click="resetFilters">Reset</Button>
+          <Button type="submit" variant="outline" :loading="filtering" loading-text="Applying…"
+            >Apply filters</Button
+          ><Button type="button" variant="ghost" :disabled="filtering" @click="resetFilters"
+            >Reset</Button
+          >
         </div>
       </form>
 

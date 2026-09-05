@@ -17,6 +17,7 @@ const props = defineProps<{
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Users', href: route('users.index') }]
 const filters = ref<UserFilters>({ ...props.filters })
+const filtering = ref(false)
 const selectedUser = ref<ManagedUser | null>(null)
 const deleting = ref(false)
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
@@ -28,7 +29,12 @@ const deleteDescription = computed(() =>
 )
 
 const applyFilters = () => {
-  router.get(route('users.index'), filters.value, { preserveState: true, replace: true })
+  router.get(route('users.index'), filters.value, {
+    preserveState: true,
+    replace: true,
+    onStart: () => (filtering.value = true),
+    onFinish: () => (filtering.value = false),
+  })
 }
 
 const sortBy = (sort: UserFilters['sort']) => {
@@ -79,7 +85,9 @@ const deleteUser = () => {
           placeholder="Search name or email"
           aria-label="Search administrators"
         />
-        <Button type="submit" variant="outline">Apply filters</Button>
+        <Button type="submit" variant="outline" :loading="filtering" loading-text="Applying…"
+          >Apply filters</Button
+        >
       </form>
 
       <DataTable>

@@ -327,6 +327,8 @@ const submit = () => {
             class="flex-1 sm:flex-none"
             type="submit"
             :disabled="form.processing || !pautang.enabled || pautang.has_unpaid_order"
+            :loading="form.processing"
+            loading-text="Placing order…"
             >Place order</Button
           >
         </div>

@@ -10,7 +10,7 @@ import {
 } from '@/modules/orders/types'
 import type { BreadcrumbItem } from '@/types'
 import { Head, Link, router } from '@inertiajs/vue3'
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 
 const props = defineProps<{
   payments: PaginatedGcashPayments
@@ -18,10 +18,16 @@ const props = defineProps<{
 }>()
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Payments', href: route('gcash-payments.index') }]
 const filters = reactive({ status: props.status })
+const filtering = ref(false)
 const statuses = Object.keys(gcashPaymentStatusLabels) as GcashPaymentStatus[]
 const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' })
 const applyFilters = () =>
-  router.get(route('gcash-payments.index'), filters, { preserveState: true, replace: true })
+  router.get(route('gcash-payments.index'), filters, {
+    preserveState: true,
+    replace: true,
+    onStart: () => (filtering.value = true),
+    onFinish: () => (filtering.value = false),
+  })
 const statusClass = (status: GcashPaymentStatus) =>
   ({
     pending_verification: 'bg-amber-100 text-amber-800',
@@ -49,7 +55,9 @@ const statusClass = (status: GcashPaymentStatus) =>
           <option v-for="item in statuses" :key="item" :value="item">
             {{ gcashPaymentStatusLabels[item] }}
           </option></select
-        ><Button type="submit" variant="outline">Apply filter</Button>
+        ><Button type="submit" variant="outline" :loading="filtering" loading-text="Applying…"
+          >Apply filter</Button
+        >
       </form>
       <DataTable>
         <template #head

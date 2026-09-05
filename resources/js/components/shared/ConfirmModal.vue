@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Button } from '@/components/ui/button'
+import { OctagonAlert, TriangleAlert } from 'lucide-vue-next'
 import {
   Dialog,
   DialogContent,
@@ -15,11 +16,13 @@ interface Props {
   description: string
   confirmLabel?: string
   processing?: boolean
+  variant?: 'destructive' | 'warning'
 }
 
 withDefaults(defineProps<Props>(), {
   confirmLabel: 'Confirm',
   processing: false,
+  variant: 'destructive',
 })
 
 const emit = defineEmits<{
@@ -36,21 +39,48 @@ const handleOpenChange = (open: boolean) => {
 
 <template>
   <Dialog :open="open" @update:open="handleOpenChange">
-    <DialogContent class="rounded-2xl border-border/80 p-0 shadow-2xl">
-      <DialogHeader>
-        <div class="rounded-t-2xl bg-destructive/10 px-6 py-5">
-          <DialogTitle>{{ title }}</DialogTitle>
-          <DialogDescription class="mt-1.5">{{ description }}</DialogDescription>
+    <DialogContent
+      class="max-w-md rounded-none border-border/90 p-0 shadow-[0_24px_60px_-30px_hsl(var(--foreground)/0.7)]"
+    >
+      <DialogHeader class="gap-0 text-left">
+        <div
+          class="flex gap-4 border-b px-6 py-5"
+          :class="
+            variant === 'destructive'
+              ? 'border-destructive/20 bg-destructive/10'
+              : 'border-amber-700/20 bg-secondary/80'
+          "
+        >
+          <div
+            class="flex size-10 shrink-0 items-center justify-center rounded-none"
+            :class="
+              variant === 'destructive'
+                ? 'bg-destructive text-destructive-foreground'
+                : 'bg-amber-500 text-amber-950'
+            "
+          >
+            <OctagonAlert v-if="variant === 'destructive'" class="size-5" aria-hidden="true" />
+            <TriangleAlert v-else class="size-5" aria-hidden="true" />
+          </div>
+          <div class="pr-6">
+            <DialogTitle class="text-base font-semibold tracking-[-0.01em]">{{
+              title
+            }}</DialogTitle>
+            <DialogDescription class="mt-1.5 text-sm leading-5">{{
+              description
+            }}</DialogDescription>
+          </div>
         </div>
       </DialogHeader>
-      <DialogFooter class="px-6 pb-6">
+      <DialogFooter class="gap-2 px-6 py-5 sm:gap-2">
         <Button variant="outline" type="button" :disabled="processing" @click="emit('close')"
           >Cancel</Button
         >
         <Button
-          variant="destructive"
+          :variant="variant === 'destructive' ? 'destructive' : 'default'"
           type="button"
-          :disabled="processing"
+          :loading="processing"
+          loading-text="Processing…"
           @click="emit('confirm')"
           >{{ confirmLabel }}</Button
         >

@@ -23,6 +23,8 @@ export interface SharedData extends PageProps {
   auth: Auth
   flash: {
     success: string | null
+    warning: string | null
+    info: string | null
   }
   notifications: {
     unread_count: number

@@ -22,9 +22,17 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => [
   { title: props.canManage ? 'Orders' : 'My orders', href: route('orders.index') },
 ])
 const filters = ref<OrderFilters>({ ...props.filters })
+const filtering = ref(false)
 const statuses = Object.keys(deliveryStatusLabels) as DeliveryStatus[]
 const paymentStatuses = Object.keys(paymentStatusLabels) as PaymentStatus[]
 const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' })
+const applyFilters = () =>
+  router.get(route('orders.index'), filters.value, {
+    preserveState: true,
+    replace: true,
+    onStart: () => (filtering.value = true),
+    onFinish: () => (filtering.value = false),
+  })
 const statusClass = (status: DeliveryStatus) =>
   ({
     pending: 'bg-amber-100 text-amber-800',
@@ -61,9 +69,7 @@ const statusClass = (status: DeliveryStatus) =>
       <form
         v-if="canManage"
         class="surface-toolbar grid gap-3 md:grid-cols-[1fr_repeat(2,180px)_auto]"
-        @submit.prevent="
-          router.get(route('orders.index'), filters, { preserveState: true, replace: true })
-        "
+        @submit.prevent="applyFilters"
       >
         <Input v-model="filters.search" placeholder="Search orders" /><select
           v-model="filters.delivery_status"
@@ -81,7 +87,9 @@ const statusClass = (status: DeliveryStatus) =>
           <option v-for="status in paymentStatuses" :key="status" :value="status">
             {{ paymentStatusLabels[status] }}
           </option></select
-        ><Button type="submit" variant="outline">Apply filters</Button>
+        ><Button type="submit" variant="outline" :loading="filtering" loading-text="Applying…"
+          >Apply filters</Button
+        >
       </form>
 
       <div v-if="!canManage" class="space-y-3 md:hidden">

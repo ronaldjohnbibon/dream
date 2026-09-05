@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import AppLayout from '@/layouts/AppLayout.vue'
 import type { CustomerNotification, PaginatedNotifications } from '@/types'
 import { Head, router } from '@inertiajs/vue3'
+import { ref } from 'vue'
 
 const props = defineProps<{ notifications: PaginatedNotifications }>()
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -13,6 +14,8 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
   timeStyle: 'short',
 })
 const formatDate = (value: string) => dateFormatter.format(new Date(value))
+const readingId = ref<string | null>(null)
+const markingAllRead = ref(false)
 
 const openNotification = (notification: CustomerNotification) => {
   const visit = () => router.visit(notification.action_url ?? route('notifications.index'))
@@ -25,18 +28,34 @@ const openNotification = (notification: CustomerNotification) => {
   router.patch(
     route('notifications.read', { notification: notification.id }),
     {},
-    { preserveScroll: true, onSuccess: visit }
+    {
+      preserveScroll: true,
+      onStart: () => (readingId.value = notification.id),
+      onFinish: () => (readingId.value = null),
+      onSuccess: visit,
+    }
   )
 }
 
-const markRead = (notification: CustomerNotification) =>
+const markRead = (notification: CustomerNotification) => {
+  readingId.value = notification.id
   router.patch(
     route('notifications.read', { notification: notification.id }),
     {},
-    { preserveScroll: true }
+    { preserveScroll: true, onFinish: () => (readingId.value = null) }
   )
-const markAllRead = () =>
-  router.patch(route('notifications.read-all'), {}, { preserveScroll: true })
+}
+const markAllRead = () => {
+  markingAllRead.value = true
+  router.patch(
+    route('notifications.read-all'),
+    {},
+    {
+      preserveScroll: true,
+      onFinish: () => (markingAllRead.value = false),
+    }
+  )
+}
 </script>
 
 <template>
@@ -51,7 +70,12 @@ const markAllRead = () =>
             Order, payment, installment, and points updates.
           </p>
         </div>
-        <Button class="w-full sm:w-auto" variant="outline" @click="markAllRead"
+        <Button
+          class="w-full sm:w-auto"
+          variant="outline"
+          :loading="markingAllRead"
+          loading-text="Marking read…"
+          @click="markAllRead"
           >Mark all as read</Button
         >
       </div>
@@ -83,7 +107,12 @@ const markAllRead = () =>
                 <p class="text-xs text-muted-foreground">
                   {{ formatDate(notification.created_at) }}
                 </p>
-                <Button size="sm" variant="outline" @click="openNotification(notification)"
+                <Button
+                  size="sm"
+                  variant="outline"
+                  :loading="readingId === notification.id"
+                  loading-text="Opening…"
+                  @click="openNotification(notification)"
                   >View</Button
                 >
               </div>
@@ -92,6 +121,8 @@ const markAllRead = () =>
                 class="mt-2"
                 size="sm"
                 variant="ghost"
+                :loading="readingId === notification.id"
+                loading-text="Marking…"
                 @click="markRead(notification)"
                 >Mark read</Button
               >
@@ -126,12 +157,19 @@ const markAllRead = () =>
                   </td>
                   <td class="px-4 py-3 text-right">
                     <div class="inline-flex gap-2">
-                      <Button size="sm" variant="outline" @click="openNotification(notification)"
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        :loading="readingId === notification.id"
+                        loading-text="Opening…"
+                        @click="openNotification(notification)"
                         >View</Button
                       ><Button
                         v-if="!notification.read_at"
                         size="sm"
                         variant="ghost"
+                        :loading="readingId === notification.id"
+                        loading-text="Marking…"
                         @click="markRead(notification)"
                         >Mark read</Button
                       >

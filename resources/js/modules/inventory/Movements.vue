@@ -24,6 +24,7 @@ const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Movement history', href: route('inventory-movements.index') },
 ]
 const filters = ref<MovementFilters>({ ...props.filters })
+const filtering = ref(false)
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',
@@ -33,6 +34,8 @@ const applyFilters = () => {
   router.get(route('inventory-movements.index'), filters.value, {
     preserveState: true,
     replace: true,
+    onStart: () => (filtering.value = true),
+    onFinish: () => (filtering.value = false),
   })
 }
 
@@ -73,7 +76,9 @@ const movementClass = (movement: StockMovementWithProduct) =>
             {{ label }}
           </option>
         </select>
-        <Button type="submit" variant="outline">Apply filters</Button>
+        <Button type="submit" variant="outline" :loading="filtering" loading-text="Applying…"
+          >Apply filters</Button
+        >
       </form>
 
       <DataTable>

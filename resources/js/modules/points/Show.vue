@@ -124,7 +124,12 @@ const submitAdjustment = () => {
               required
               ><Input id="adjustment-reason" v-model="adjustment.reason" maxlength="1000" required
             /></FormField>
-            <Button type="submit" :disabled="adjustment.processing">Record adjustment</Button>
+            <Button
+              type="submit"
+              :loading="adjustment.processing"
+              loading-text="Recording adjustment…"
+              >Record adjustment</Button
+            >
           </form>
         </CardContent>
       </Card>

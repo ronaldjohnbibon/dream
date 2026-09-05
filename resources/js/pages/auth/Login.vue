@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import InputError from '@/components/InputError.vue'
+import FeedbackAlert from '@/components/shared/FeedbackAlert.vue'
 import TextLink from '@/components/TextLink.vue'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -7,7 +8,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import AuthBase from '@/layouts/AuthLayout.vue'
 import { Head, useForm } from '@inertiajs/vue3'
-import { LoaderCircle } from 'lucide-vue-next'
 
 defineProps<{
   status?: string
@@ -34,9 +34,7 @@ const submit = () => {
   >
     <Head title="Log in" />
 
-    <div v-if="status" class="mb-4 text-center text-sm font-medium text-green-600">
-      {{ status }}
-    </div>
+    <FeedbackAlert v-if="status" variant="success" :messages="[status]" class="mb-4" />
 
     <form @submit.prevent="submit" class="flex flex-col gap-6">
       <div class="grid gap-6">
@@ -86,10 +84,14 @@ const submit = () => {
           </Label>
         </div>
 
-        <Button type="submit" class="mt-4 w-full" tabindex="4" :disabled="form.processing">
-          <LoaderCircle v-if="form.processing" class="h-4 w-4 animate-spin" />
-          Log in
-        </Button>
+        <Button
+          type="submit"
+          class="mt-4 w-full"
+          tabindex="4"
+          :loading="form.processing"
+          loading-text="Logging in…"
+          >Log in</Button
+        >
       </div>
     </form>
   </AuthBase>
