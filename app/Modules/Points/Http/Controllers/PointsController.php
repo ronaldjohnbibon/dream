@@ -44,8 +44,8 @@ class PointsController extends Controller
                 return;
             }
 
-            $points         = (int) $attributes['points'];
-            $balance        = $this->points->currentBalance($lockedCustomer);
+            $points  = (int) $attributes['points'];
+            $balance = $this->points->currentBalance($lockedCustomer);
 
             if ($points < 0 && abs($points) > $balance) {
                 throw ValidationException::withMessages([

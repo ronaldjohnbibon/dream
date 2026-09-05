@@ -274,18 +274,19 @@ class DashboardController extends Controller
     /** @return list<array{label: string, value: int, percentage: float}> */
     private function paymentTiming(): array
     {
-        $installments = PautangInstallment::query()->where('remaining_balance', '<=', 0)
+        $gracePeriodDays = SystemSetting::current()->pautang_grace_period_days;
+        $installments    = PautangInstallment::query()->where('remaining_balance', '<=', 0)
             ->whereHas('order', fn (Builder $query) => $query->where('order_status', '!=', 'cancelled'))
-            ->with(['gcashPayments' => fn ($query) => $query->where('status', 'approved')->orderByDesc('payment_date')])
+            ->with(['gcashPayments' => fn ($query) => $query->where('status', 'approved')->whereNotNull('reviewed_at')->orderByDesc('reviewed_at')->orderByDesc('id')])
             ->get(['id', 'due_date']);
         $onTime = 0;
         $late   = 0;
         foreach ($installments as $installment) {
             $finalPayment = $installment->gcashPayments->first();
-            if (! $finalPayment) {
+            if (! $finalPayment || ! $finalPayment->reviewed_at) {
                 continue;
             }
-            if ($finalPayment->payment_date->isAfter($installment->due_date->copy()->addDays(SystemSetting::current()->pautang_grace_period_days))) {
+            if ($finalPayment->reviewed_at->copy()->startOfDay()->isAfter($installment->due_date->copy()->addDays($gracePeriodDays))) {
                 $late++;
             } else {
                 $onTime++;

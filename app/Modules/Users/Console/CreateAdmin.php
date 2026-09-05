@@ -5,11 +5,12 @@ namespace App\Modules\Users\Console;
 use App\Modules\Users\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 class CreateAdmin extends Command
 {
-    protected $signature = 'app:create-admin {--name=} {--email=} {--password=}';
+    protected $signature = 'app:create-admin {--name=} {--email=}';
 
     protected $description = 'Create an administrator account';
 
@@ -17,7 +18,7 @@ class CreateAdmin extends Command
     {
         $name     = $this->option('name') ?: $this->ask('Name');
         $email    = $this->option('email') ?: $this->ask('Email address');
-        $password = $this->option('password') ?: $this->secret('Password (at least 8 characters)');
+        $password = $this->secret('Password (at least 8 characters)');
 
         try {
             validator(
@@ -25,7 +26,7 @@ class CreateAdmin extends Command
                 [
                     'name'     => ['required', 'string', 'max:255'],
                     'email'    => ['required', 'email', 'max:255', 'unique:users,email'],
-                    'password' => ['required', 'string', 'min:8'],
+                    'password' => ['required', 'string', Password::defaults()],
                 ],
             )->validate();
         } catch (ValidationException $exception) {

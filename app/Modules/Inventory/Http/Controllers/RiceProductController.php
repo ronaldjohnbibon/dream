@@ -155,7 +155,7 @@ class RiceProductController extends Controller
         $attributes = $request->validated();
 
         DB::transaction(function () use ($attributes, $riceProduct, $request): void {
-            $product       = RiceProduct::query()->lockForUpdate()->findOrFail($riceProduct->id);
+            $product = RiceProduct::query()->lockForUpdate()->findOrFail($riceProduct->id);
             if (StockMovement::query()->where('idempotency_key', $attributes['idempotency_key'])->exists()) {
                 return;
             }
@@ -172,13 +172,13 @@ class RiceProductController extends Controller
             $product->update(['available_stock' => $newStock]);
             $movement = $product->stockMovements()->create([
                 'idempotency_key' => $attributes['idempotency_key'],
-                'quantity'       => $attributes['quantity'],
-                'type'           => $attributes['type'],
-                'previous_stock' => $previousStock,
-                'new_stock'      => $newStock,
-                'order_id'       => $attributes['order_id'] ?? null,
-                'notes'          => $attributes['notes']    ?? null,
-                'user_id'        => $request->user()->id,
+                'quantity'        => $attributes['quantity'],
+                'type'            => $attributes['type'],
+                'previous_stock'  => $previousStock,
+                'new_stock'       => $newStock,
+                'order_id'        => $attributes['order_id'] ?? null,
+                'notes'           => $attributes['notes']    ?? null,
+                'user_id'         => $request->user()->id,
             ]);
             $movementType = str_replace('_', ' ', $attributes['type']);
             $this->activityLogs->record(

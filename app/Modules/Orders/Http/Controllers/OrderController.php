@@ -98,7 +98,7 @@ class OrderController extends Controller
         $created        = false;
 
         $order = DB::transaction(function () use ($attributes, $request, &$redeemedPoints, &$created): Order {
-            $customer = User::query()->lockForUpdate()->findOrFail($request->user()->id);
+            $customer      = User::query()->lockForUpdate()->findOrFail($request->user()->id);
             $existingOrder = Order::query()
                 ->where('customer_id', $customer->id)
                 ->where('idempotency_key', $attributes['idempotency_key'])
@@ -138,9 +138,9 @@ class OrderController extends Controller
             $previousStock  = $product->available_stock;
             $order          = Order::create([
                 'idempotency_key' => $attributes['idempotency_key'],
-                'customer_id'  => $customer->id, 'rice_product_id' => $product->id, 'quantity' => $quantity, 'unit_price' => number_format($unitPrice, 2, '.', ''), 'subtotal' => number_format($subtotal, 2, '.', ''),
-                'points_used'  => $pointsToUse, 'points_discount' => number_format($pointsDiscount, 2, '.', ''), 'delivery_fee' => number_format($fee, 2, '.', ''), 'final_amount' => number_format($finalAmount, 2, '.', ''), 'amount_paid' => '0.00', 'remaining_balance' => number_format($finalAmount, 2, '.', ''),
-                'payment_type' => Order::PAYMENT_TYPE, 'delivery_address' => $attributes['delivery_address'], 'delivery_area' => $area->name, 'order_date' => today(), 'order_status' => 'pending', 'payment_status' => $finalAmount <= 0 ? 'paid' : 'unpaid', 'notes' => $attributes['notes'] ?? null,
+                'customer_id'     => $customer->id, 'rice_product_id' => $product->id, 'quantity' => $quantity, 'unit_price' => number_format($unitPrice, 2, '.', ''), 'subtotal' => number_format($subtotal, 2, '.', ''),
+                'points_used'     => $pointsToUse, 'points_discount' => number_format($pointsDiscount, 2, '.', ''), 'delivery_fee' => number_format($fee, 2, '.', ''), 'final_amount' => number_format($finalAmount, 2, '.', ''), 'amount_paid' => '0.00', 'remaining_balance' => number_format($finalAmount, 2, '.', ''),
+                'payment_type'    => Order::PAYMENT_TYPE, 'delivery_address' => $attributes['delivery_address'], 'delivery_area' => $area->name, 'order_date' => today(), 'order_status' => 'pending', 'payment_status' => $finalAmount <= 0 ? 'paid' : 'unpaid', 'notes' => $attributes['notes'] ?? null,
             ]);
             $order->update(['order_number' => 'ORD-'.str_pad((string) $order->id, 6, '0', STR_PAD_LEFT)]);
             $order->delivery()->create(['customer_id' => $customer->id, 'delivery_area_id' => $area->id, 'delivery_area_name' => $area->name, 'delivery_address' => $attributes['delivery_address'], 'delivery_fee' => number_format($fee, 2, '.', ''), 'status' => 'pending', 'notes' => $attributes['notes'] ?? null]);

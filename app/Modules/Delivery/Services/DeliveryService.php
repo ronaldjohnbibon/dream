@@ -8,6 +8,7 @@ use App\Modules\Inventory\Models\RiceProduct;
 use App\Modules\Logs\Services\ActivityLogger;
 use App\Modules\Notifications\Services\CustomerNotificationService;
 use App\Modules\Orders\Models\Order;
+use App\Modules\Points\Models\PointsLedger;
 use App\Modules\Points\Services\PointsService;
 use App\Modules\Settings\Models\SystemSetting;
 use App\Modules\Users\Models\User;
@@ -27,8 +28,10 @@ class DeliveryService
     public function update(Delivery $delivery, array $attributes, User $admin): Delivery
     {
         $notificationData = [];
+        /** @var PointsLedger|null $earnedLedger */
+        $earnedLedger = null;
 
-        $updatedDelivery = DB::transaction(function () use ($delivery, $attributes, $admin, &$notificationData): Delivery {
+        $updatedDelivery = DB::transaction(function () use ($delivery, $attributes, $admin, &$notificationData, &$earnedLedger): Delivery {
             $lockedDelivery = Delivery::query()->lockForUpdate()->findOrFail($delivery->id);
             $order          = Order::query()->lockForUpdate()->findOrFail($lockedDelivery->order_id);
             $nextStatus     = $attributes['status'];
@@ -113,6 +116,9 @@ class DeliveryService
             $lockedDelivery->update($deliveryData);
 
             $order->update(['order_status' => $this->orderStatus($nextStatus), 'delivery_date' => $deliveryData['delivery_date']]);
+            if ($isDelivered) {
+                $earnedLedger = $this->points->awardCompletedOrder($order);
+            }
             if ($isStatusChange) {
                 $notificationData[] = ['status' => $nextStatus, 'order_id' => $order->id];
             }
@@ -128,6 +134,10 @@ class DeliveryService
                 );
             }
 
+        }
+
+        if ($earnedLedger) {
+            $this->notifications->pointsEarned($earnedLedger->load('order'));
         }
 
         return $updatedDelivery;

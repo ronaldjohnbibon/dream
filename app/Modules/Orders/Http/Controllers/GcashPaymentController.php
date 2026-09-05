@@ -15,6 +15,7 @@ use App\Modules\Points\Models\PointsLedger;
 use App\Modules\Points\Services\PointsService;
 use App\Modules\Settings\Models\GcashSetting;
 use Illuminate\Database\QueryException;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -67,10 +68,13 @@ class GcashPaymentController extends Controller
             throw ValidationException::withMessages(['payment' => 'GCash payments are not available until an administrator configures the account and QR code.']);
         }
 
+        /** @var FilesystemAdapter $publicDisk */
+        $publicDisk = Storage::disk('r2-public');
+
         return Inertia::render('modules/payments/Create', [
             'order'       => $this->paymentOrderData($order),
             'installment' => $this->installmentData($installment),
-            'gcash'       => ['account_name' => $gcash->account_name, 'account_number' => $gcash->account_number, 'qr_code_url' => Storage::disk('r2-public')->url($gcash->qr_code_path)],
+            'gcash'       => ['account_name' => $gcash->account_name, 'account_number' => $gcash->account_number, 'qr_code_url' => $publicDisk->url($gcash->qr_code_path)],
         ]);
     }
 
@@ -82,7 +86,7 @@ class GcashPaymentController extends Controller
 
         try {
             $payment = DB::transaction(function () use ($request, $order, $attributes, &$screenshotPath, &$created): GcashPayment {
-                $lockedOrder = Order::query()->lockForUpdate()->findOrFail($order->id);
+                $lockedOrder     = Order::query()->lockForUpdate()->findOrFail($order->id);
                 $existingPayment = GcashPayment::query()
                     ->where('order_id', $lockedOrder->id)
                     ->where('customer_id', $request->user()->id)
@@ -163,9 +167,11 @@ class GcashPaymentController extends Controller
     public function screenshot(Request $request, GcashPayment $gcashPayment)
     {
         abort_unless($request->user()?->is_admin || $gcashPayment->customer_id === $request->user()?->id, 403);
-        abort_unless(Storage::disk('r2-private')->exists($gcashPayment->screenshot_path), 404);
+        /** @var FilesystemAdapter $disk */
+        $disk = Storage::disk('r2-private');
+        abort_unless($disk->exists($gcashPayment->screenshot_path), 404);
 
-        return Storage::disk('r2-private')->response($gcashPayment->screenshot_path);
+        return $disk->response($gcashPayment->screenshot_path);
     }
 
     public function approve(ReviewGcashPaymentRequest $request, GcashPayment $gcashPayment): RedirectResponse
@@ -226,7 +232,7 @@ class GcashPaymentController extends Controller
                     $earnedLedgerIds[] = $installmentLedger->id;
                 }
 
-                $completionLedger = $this->points->awardCompletedPautang($order, $payment);
+                $completionLedger = $this->points->awardCompletedOrder($order);
                 if ($completionLedger) {
                     $earnedLedgerIds[] = $completionLedger->id;
                 }
