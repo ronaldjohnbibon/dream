@@ -29,12 +29,12 @@ class PasswordResetLinkController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $request->validate([
-            'email' => 'required|email',
+        $attributes = $request->validate([
+            'email' => ['required', 'string', 'email', 'max:255'],
         ]);
 
         Password::sendResetLink(
-            $request->only('email')
+            $attributes
         );
 
         return back()->with('status', __('A reset link will be sent if the account exists.'));

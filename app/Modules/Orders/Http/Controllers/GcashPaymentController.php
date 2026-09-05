@@ -59,8 +59,11 @@ class GcashPaymentController extends Controller
     public function create(Request $request, Order $order): Response
     {
         $this->ensureCustomerOwnsOrder($request, $order);
+        $attributes = $request->validate([
+            'installment' => ['required', 'integer', 'min:1'],
+        ]);
         $order->load('pautangInstallments');
-        $installment = $this->requestedInstallment($request, $order);
+        $installment = $this->requestedInstallment($attributes['installment'], $order);
         $this->ensureSubmittable($order, $installment);
 
         $gcash = GcashSetting::query()->find(1);
@@ -289,9 +292,8 @@ class GcashPaymentController extends Controller
         abort_unless(! $request->user()?->is_admin && $order->customer_id === $request->user()?->id, 403);
     }
 
-    private function requestedInstallment(Request $request, Order $order): PautangInstallment
+    private function requestedInstallment(int $installmentId, Order $order): PautangInstallment
     {
-        $installmentId = $request->integer('installment');
         $installment   = $order->pautangInstallments->firstWhere('id', $installmentId);
         if (! $installment) {
             throw ValidationException::withMessages(['installment' => 'Choose an unpaid pautang installment.']);

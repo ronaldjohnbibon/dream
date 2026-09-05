@@ -16,7 +16,7 @@ class StoreDeliveryAreaRequest extends FormRequest
     {
         return [
             'name'         => ['required', 'string', 'max:255', 'unique:delivery_areas,name'],
-            'delivery_fee' => ['required', 'numeric', 'min:0', 'max:999999.99'],
+            'delivery_fee' => ['required', 'numeric', 'min:0', 'max:999999.99', 'decimal:0,2'],
         ];
     }
 }

@@ -45,7 +45,10 @@ const typeLabel = (type: PointsLedgerType) =>
 
 const submitAdjustment = () => {
   adjustment.post(route('customers.points.adjustments.store', { customer: props.customer.id }), {
-    onSuccess: () => adjustment.reset(),
+    onSuccess: () => {
+      adjustment.reset()
+      adjustment.idempotency_key = crypto.randomUUID()
+    },
   })
 }
 </script>

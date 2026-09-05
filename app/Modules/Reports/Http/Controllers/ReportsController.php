@@ -14,6 +14,7 @@ use App\Modules\Users\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -30,7 +31,7 @@ class ReportsController extends Controller
         $validated = $request->validate([
             'date_from'      => ['nullable', 'date', 'before_or_equal:date_to'],
             'date_to'        => ['nullable', 'date', 'after_or_equal:date_from'],
-            'customer_id'    => ['nullable', 'integer', 'exists:users,id'],
+            'customer_id'    => ['nullable', 'integer', Rule::exists('users', 'id')->where('is_admin', false)],
             'payment_status' => ['nullable', 'in:all,'.implode(',', Order::PAYMENT_STATUSES)],
             'order_status'   => ['nullable', 'in:all,'.implode(',', Order::STATUSES)],
         ]);

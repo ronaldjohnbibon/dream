@@ -36,7 +36,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 const suspending = ref(false)
 const suspendDialogOpen = ref(false)
 const reactivating = ref(false)
-const adjustment = useForm({ points: 0, reason: '' })
+const adjustment = useForm({ idempotency_key: crypto.randomUUID(), points: 0, reason: '' })
 const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' })
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
 const formattedDate = new Intl.DateTimeFormat(undefined, {
@@ -132,7 +132,10 @@ const reactivateCustomer = () => {
 
 const submitAdjustment = () => {
   adjustment.post(route('customers.points.adjustments.store', { customer: props.customer.id }), {
-    onSuccess: () => adjustment.reset(),
+    onSuccess: () => {
+      adjustment.reset()
+      adjustment.idempotency_key = crypto.randomUUID()
+    },
   })
 }
 </script>

@@ -28,7 +28,7 @@ class UpdateCustomerRequest extends FormRequest
         return [
             'name'             => ['required', 'string', 'max:255'],
             'email'            => ['nullable', 'string', 'lowercase', 'email', 'max:255', Rule::unique(User::class)->ignore($customer)],
-            'mobile_number'    => ['required', 'string', 'max:30'],
+            'mobile_number'    => ['required', 'string', 'regex:/^(?:\+63|0)9\d{9}$/'],
             'complete_address' => ['required', 'string', 'max:2000'],
             'delivery_area'    => ['required', 'string', 'max:255'],
             'password'         => ['nullable', 'confirmed', Password::defaults()],

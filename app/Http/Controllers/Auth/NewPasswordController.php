@@ -34,9 +34,9 @@ class NewPasswordController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $request->validate([
-            'token'    => 'required',
-            'email'    => 'required|email',
+        $attributes = $request->validate([
+            'token'    => ['required', 'string', 'max:255'],
+            'email'    => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
@@ -44,10 +44,10 @@ class NewPasswordController extends Controller
         // will update the password on an actual user model and persist it to the
         // database. Otherwise we will parse the error and return the response.
         $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function ($user) use ($request) {
+            $attributes,
+            function ($user) use ($attributes) {
                 $user->forceFill([
-                    'password'       => Hash::make($request->password),
+                    'password'       => Hash::make($attributes['password']),
                     'remember_token' => Str::random(60),
                 ])->save();
 
