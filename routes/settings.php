@@ -13,7 +13,9 @@ Route::middleware('auth')->group(function () {
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::get('settings/password', [PasswordController::class, 'edit'])->name('password.edit');
-    Route::put('settings/password', [PasswordController::class, 'update'])->name('password.update');
+    Route::put('settings/password', [PasswordController::class, 'update'])
+        ->middleware('throttle:password-verification')
+        ->name('password.update');
     Route::get('settings/system', [SystemSettingController::class, 'edit'])->name('system-settings.edit');
     Route::put('settings/system', [SystemSettingController::class, 'update'])->name('system-settings.update');
 });
