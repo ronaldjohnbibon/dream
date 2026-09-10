@@ -11,7 +11,7 @@ return new class extends Migration
     {
         Schema::create('system_settings', function (Blueprint $table) {
             $table->id();
-            $table->string('business_name')->default('ARice');
+            $table->string('business_name')->default('aRICE');
             $table->string('logo_path')->nullable();
             $table->string('contact_number')->nullable();
             $table->text('address')->nullable();
@@ -37,7 +37,7 @@ return new class extends Migration
 
         DB::table('system_settings')->insert([
             'id'                        => 1,
-            'business_name'             => 'ARice',
+            'business_name'             => 'aRICE',
             'pautang_enabled'           => true,
             'pautang_installments'      => 2,
             'pautang_payment_term_days' => 30,

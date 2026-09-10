@@ -32,7 +32,7 @@ class SystemSetting extends Model
     public static function current(): self
     {
         return self::query()->firstOrCreate(['id' => 1], [
-            'business_name'             => 'ARice',
+            'business_name'             => 'aRICE',
             'pautang_enabled'           => true,
             'pautang_installments'      => 2,
             'pautang_payment_term_days' => 30,
