@@ -6,7 +6,10 @@ use App\Modules\Delivery\Http\Controllers\DeliveryController;
 use App\Modules\Inventory\Http\Controllers\RiceProductController;
 use App\Modules\Inventory\Http\Controllers\StockMovementController;
 use App\Modules\Logs\Http\Controllers\ActivityLogController;
+use App\Modules\Logs\Http\Controllers\SystemLogController;
 use App\Modules\Notifications\Http\Controllers\NotificationController;
+use App\Modules\Notifications\Http\Controllers\PushSubscriptionController;
+use App\Modules\Notifications\Http\Controllers\TestWebPushNotificationController;
 use App\Modules\Orders\Http\Controllers\GcashPaymentController;
 use App\Modules\Orders\Http\Controllers\OrderController;
 use App\Modules\Orders\Http\Controllers\PautangController;
@@ -87,9 +90,25 @@ Route::middleware('auth')->group(function () {
     Route::patch('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
     Route::patch('notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
 
+    Route::get('push/vapid-public-key', [PushSubscriptionController::class, 'vapidPublicKey'])
+        ->name('push.vapid-public-key');
+    Route::post('push-subscriptions', [PushSubscriptionController::class, 'store'])
+        ->name('push-subscriptions.store');
+    Route::delete('push-subscriptions', [PushSubscriptionController::class, 'destroy'])
+        ->name('push-subscriptions.destroy');
+    Route::post('push/test-notification', TestWebPushNotificationController::class)
+        ->middleware('throttle:3,1')
+        ->name('push.test');
+
     Route::get('activity-logs', [ActivityLogController::class, 'index'])
         ->middleware('throttle:search')
         ->name('activity-logs.index');
+    Route::get('system-logs', [SystemLogController::class, 'index'])
+        ->middleware('throttle:search')
+        ->name('system-logs.index');
+    Route::get('system-logs/{systemLog}', [SystemLogController::class, 'show'])
+        ->middleware('throttle:search')
+        ->name('system-logs.show');
 });
 
 require __DIR__.'/settings.php';

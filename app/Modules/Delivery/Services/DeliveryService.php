@@ -6,6 +6,7 @@ use App\Modules\Delivery\Models\Delivery;
 use App\Modules\Delivery\Models\DeliveryArea;
 use App\Modules\Inventory\Models\RiceProduct;
 use App\Modules\Logs\Services\ActivityLogger;
+use App\Modules\Logs\Services\SystemLogger;
 use App\Modules\Notifications\Services\CustomerNotificationService;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Points\Models\PointsLedger;
@@ -22,16 +23,21 @@ class DeliveryService
         private readonly CustomerNotificationService $notifications,
         private readonly DeliveryPricingService $pricing,
         private readonly ActivityLogger $activityLogs,
+        private readonly SystemLogger $systemLogs,
     ) {}
 
     /** @param array<string, mixed> $attributes */
     public function update(Delivery $delivery, array $attributes, User $admin): Delivery
     {
         $notificationData = [];
+        /** @var array{action: string, description: string, order_id: int, status: string, metadata: array<string, mixed>}|null $systemLog */
+        $systemLog = null;
+        /** @var array{action: string, description: string, ledger_id: int, metadata: array<string, mixed>}|null $pointsLog */
+        $pointsLog = null;
         /** @var PointsLedger|null $earnedLedger */
         $earnedLedger = null;
 
-        $updatedDelivery = DB::transaction(function () use ($delivery, $attributes, $admin, &$notificationData, &$earnedLedger): Delivery {
+        $updatedDelivery = DB::transaction(function () use ($delivery, $attributes, $admin, &$notificationData, &$systemLog, &$pointsLog, &$earnedLedger): Delivery {
             $lockedDelivery = Delivery::query()->lockForUpdate()->findOrFail($delivery->id);
             $order          = Order::query()->lockForUpdate()->findOrFail($lockedDelivery->order_id);
             $nextStatus     = $attributes['status'];
@@ -91,8 +97,25 @@ class DeliveryService
                     'new_stock' => $newStock, 'order_id' => $order->id,
                     'notes'     => "Order {$order->order_number} cancelled.", 'user_id' => $admin->id,
                 ]);
-                User::query()->lockForUpdate()->findOrFail($order->customer_id);
-                $this->points->refundOrderRedemption($order);
+                $customer       = User::query()->lockForUpdate()->findOrFail($order->customer_id);
+                $previousPoints = $this->points->currentBalance($customer);
+                $refundLedger   = $this->points->refundOrderRedemption($order);
+                if ($refundLedger?->wasRecentlyCreated) {
+                    $pointsLog = [
+                        'action'      => 'points_refunded',
+                        'description' => "{$refundLedger->points} redeemed points refunded for cancelled order {$order->order_number}.",
+                        'ledger_id'   => $refundLedger->id,
+                        'metadata'    => [
+                            'ledger_id'       => $refundLedger->id,
+                            'customer_id'     => $refundLedger->customer_id,
+                            'order_id'        => $refundLedger->order_id,
+                            'previous_points' => $previousPoints,
+                            'points_added'    => $refundLedger->points,
+                            'new_points'      => $this->points->currentBalance($customer),
+                            'reason'          => 'order_cancelled',
+                        ],
+                    ];
+                }
                 $order->pautangInstallments()->delete();
                 $this->activityLogs->record($admin, 'orders', 'cancelled', $order, "Order {$order->order_number} cancelled.");
             }
@@ -115,9 +138,55 @@ class DeliveryService
             ];
             $lockedDelivery->update($deliveryData);
 
-            $order->update(['order_status' => $this->orderStatus($nextStatus), 'delivery_date' => $deliveryData['delivery_date']]);
+            $previousOrderStatus = $order->order_status;
+            $nextOrderStatus     = $this->orderStatus($nextStatus);
+            $order->update(['order_status' => $nextOrderStatus, 'delivery_date' => $deliveryData['delivery_date']]);
+            if ($previousOrderStatus !== $nextOrderStatus) {
+                $action = match (true) {
+                    $nextOrderStatus     === 'cancelled'                                   => 'order_cancelled',
+                    $previousOrderStatus === 'pending' && $nextOrderStatus === 'confirmed' => 'order_approved',
+                    default                                                                => 'order_status_changed',
+                };
+                $metadata = [
+                    'order_id'        => $order->id,
+                    'customer_id'     => $order->customer_id,
+                    'previous_status' => $previousOrderStatus,
+                    'new_status'      => $nextOrderStatus,
+                ];
+                if ($action === 'order_approved') {
+                    $metadata['final_amount'] = $order->final_amount;
+                }
+
+                $systemLog = [
+                    'action'      => $action,
+                    'description' => match ($action) {
+                        'order_cancelled' => "Order {$order->order_number} cancelled.",
+                        'order_approved'  => "Order {$order->order_number} approved.",
+                        default           => "Order {$order->order_number} status changed from {$previousOrderStatus} to {$nextOrderStatus}.",
+                    },
+                    'order_id' => $order->id,
+                    'status'   => $nextOrderStatus,
+                    'metadata' => $metadata,
+                ];
+            }
             if ($isDelivered) {
-                $earnedLedger = $this->points->awardCompletedOrder($order);
+                $previousPoints = $this->points->currentBalance($order->customer_id);
+                $earnedLedger   = $this->points->awardCompletedOrder($order);
+                if ($earnedLedger) {
+                    $pointsLog = [
+                        'action'      => 'points_earned',
+                        'description' => "{$earnedLedger->points} completed order points added.",
+                        'ledger_id'   => $earnedLedger->id,
+                        'metadata'    => [
+                            'ledger_id'       => $earnedLedger->id,
+                            'customer_id'     => $earnedLedger->customer_id,
+                            'order_id'        => $earnedLedger->order_id,
+                            'previous_points' => $previousPoints,
+                            'points_added'    => $earnedLedger->points,
+                            'new_points'      => $this->points->currentBalance($order->customer_id),
+                        ],
+                    ];
+                }
             }
             if ($isStatusChange) {
                 $notificationData[] = ['status' => $nextStatus, 'order_id' => $order->id];
@@ -125,6 +194,29 @@ class DeliveryService
 
             return $lockedDelivery->fresh(['order.riceProduct', 'customer', 'deliveryArea']);
         });
+
+        if ($systemLog) {
+            $this->systemLogs->record(
+                type: 'activity',
+                action: $systemLog['action'],
+                description: $systemLog['description'],
+                module: 'orders',
+                recordId: $systemLog['order_id'],
+                status: $systemLog['status'],
+                metadata: $systemLog['metadata'],
+            );
+        }
+        if ($pointsLog) {
+            $this->systemLogs->record(
+                type: 'activity',
+                action: $pointsLog['action'],
+                description: $pointsLog['description'],
+                module: 'points',
+                recordId: $pointsLog['ledger_id'],
+                status: 'completed',
+                metadata: $pointsLog['metadata'],
+            );
+        }
 
         foreach ($notificationData as $notification) {
             if (isset($notification['status'])) {

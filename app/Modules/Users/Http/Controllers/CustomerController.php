@@ -4,6 +4,7 @@ namespace App\Modules\Users\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Logs\Services\ActivityLogger;
+use App\Modules\Logs\Services\SystemLogger;
 use App\Modules\Orders\Models\GcashPayment;
 use App\Modules\Orders\Models\Order;
 use App\Modules\Orders\Models\PautangInstallment;
@@ -21,7 +22,11 @@ use Inertia\Response;
 
 class CustomerController extends Controller
 {
-    public function __construct(private readonly PointsService $points, private readonly ActivityLogger $activityLogs) {}
+    public function __construct(
+        private readonly PointsService $points,
+        private readonly ActivityLogger $activityLogs,
+        private readonly SystemLogger $systemLogs,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -34,9 +39,9 @@ class CustomerController extends Controller
             'direction' => ['nullable', 'in:asc,desc'],
         ]);
 
-        $search    = $filters['search']       ?? '';
-        $status    = $filters['status']       ?? 'all';
-        $sort      = $filters['sort']           ?? 'created_at';
+        $search    = $filters['search']    ?? '';
+        $status    = $filters['status']    ?? 'all';
+        $sort      = $filters['sort']      ?? 'created_at';
         $direction = $filters['direction'] ?? 'desc';
 
         $customers = User::query()
@@ -121,13 +126,26 @@ class CustomerController extends Controller
     public function update(UpdateCustomerRequest $request, User $customer): RedirectResponse
     {
         $this->ensureCustomer($customer);
-        $attributes = $request->validated();
+        $attributes      = $request->validated();
+        $passwordChanged = $attributes['password'] !== null;
 
-        if ($attributes['password'] === null) {
+        if (! $passwordChanged) {
             unset($attributes['password']);
         }
 
         $customer->update($attributes);
+
+        if ($passwordChanged) {
+            $this->systemLogs->record(
+                type: 'security',
+                action: 'password_changed_by_admin',
+                description: 'Customer password changed by an administrator.',
+                module: 'users',
+                recordId: (int) $customer->id,
+                status: 'completed',
+                metadata: ['affected_user_id' => $customer->id],
+            );
+        }
 
         return to_route('customers.show', $customer)->with('success', 'Customer updated successfully.');
     }
@@ -137,15 +155,35 @@ class CustomerController extends Controller
         $this->authorize('update', $customer);
         $this->ensureCustomer($customer);
 
-        DB::transaction(function () use ($request, $customer): void {
+        $previousStatus  = null;
+        $updatedCustomer = DB::transaction(function () use ($request, $customer, &$previousStatus): ?User {
             $lockedCustomer = User::query()->lockForUpdate()->findOrFail($customer->id);
             if ($lockedCustomer->account_status === 'suspended') {
-                return;
+                return null;
             }
 
+            $previousStatus = $lockedCustomer->account_status;
             $lockedCustomer->update(['account_status' => 'suspended']);
             $this->activityLogs->record($request->user(), 'customers', 'suspended', $lockedCustomer, "Customer {$lockedCustomer->name} suspended.");
+
+            return $lockedCustomer;
         });
+
+        if ($updatedCustomer !== null) {
+            $this->systemLogs->record(
+                type: 'security',
+                action: 'account_disabled',
+                description: 'Customer account suspended.',
+                module: 'users',
+                recordId: (int) $updatedCustomer->id,
+                status: 'suspended',
+                metadata: [
+                    'affected_user_id' => $updatedCustomer->id,
+                    'previous_status'  => $previousStatus,
+                    'new_status'       => 'suspended',
+                ],
+            );
+        }
 
         return to_route('customers.show', $customer)->with('success', 'Customer suspended successfully.');
     }
@@ -155,15 +193,35 @@ class CustomerController extends Controller
         $this->authorize('update', $customer);
         $this->ensureCustomer($customer);
 
-        DB::transaction(function () use ($request, $customer): void {
+        $previousStatus  = null;
+        $updatedCustomer = DB::transaction(function () use ($request, $customer, &$previousStatus): ?User {
             $lockedCustomer = User::query()->lockForUpdate()->findOrFail($customer->id);
             if ($lockedCustomer->account_status !== 'suspended') {
-                return;
+                return null;
             }
 
+            $previousStatus = $lockedCustomer->account_status;
             $lockedCustomer->update(['account_status' => 'good_standing']);
             $this->activityLogs->record($request->user(), 'customers', 'reactivated', $lockedCustomer, "Customer {$lockedCustomer->name} reactivated.");
+
+            return $lockedCustomer;
         });
+
+        if ($updatedCustomer !== null) {
+            $this->systemLogs->record(
+                type: 'security',
+                action: 'account_enabled',
+                description: 'Customer account reactivated.',
+                module: 'users',
+                recordId: (int) $updatedCustomer->id,
+                status: 'good_standing',
+                metadata: [
+                    'affected_user_id' => $updatedCustomer->id,
+                    'previous_status'  => $previousStatus,
+                    'new_status'       => 'good_standing',
+                ],
+            );
+        }
 
         return to_route('customers.show', $customer)->with('success', 'Customer reactivated successfully.');
     }

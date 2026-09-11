@@ -190,3 +190,67 @@ Start with one web-service instance and one worker. Scale based on evidence:
 - [ ] Custom domain, HTTPS, Cloudflare proxying, and DNSSEC are verified
 - [ ] Deployment-failure, uptime, database, and queue alerts reach an owner
 - [ ] Database and R2 recovery procedure has been tested
+
+## Web Push deployment and verification
+
+Set `APP_URL` to the public HTTPS origin and serve Laravel's `public/` directory.
+Verify `/push-service-worker.js` returns JavaScript with HTTP 200, without an
+authentication redirect, and `/manifest.webmanifest` and its PNG icons load over
+HTTPS. Keep the worker at the origin root with scope `/`. Do not cache authenticated
+push routes at the proxy/CDN. The application respects forwarded HTTPS headers;
+the origin should only accept traffic through its trusted proxy.
+
+Set `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` only in server environment variables.
+Keep the pair stable across releases and web/worker instances; never add the
+private key to a `VITE_` variable. Set `VAPID_SUBJECT` to a real public HTTPS contact
+URL or a `mailto:` address on your domain. Do not use a localhost subject for Apple
+push. The browser retrieves only the public key from the authenticated endpoint.
+
+Run `php artisan migrate --force` during deployment, including the forward
+case-sensitive push-endpoint migration. Set `QUEUE_CONNECTION=database`, keep the
+existing queue worker running, and restart it after deployment using
+`php artisan queue:restart`. Push notifications dispatch after commit and override
+the worker's retry setting with one attempt. A queue outage preserves the in-app
+notification and business transaction; push is best effort and is not replayed by
+rerunning the reminder command. Review application warnings and `failed_jobs`.
+Do not bulk-retry push jobs without checking whether a device already received them.
+
+Keep the existing 08:00 Asia/Manila reminder schedule. Run either the configured
+scheduled command or the Laravel scheduler. Concurrent invocations and sequential
+reruns use the same database deduplication. Paid installments and cancelled orders
+are excluded; due-tomorrow, due-today and overdue are separate reminder events.
+
+Push subscription endpoints are restricted to the provider hosts in
+`config/webpush.php`. Add a host only after confirming it is an official browser
+push service. Invalid legacy subscriptions are excluded; 404/410 responses delete
+expired records, while authorization, rate-limit and temporary provider errors
+retain subscriptions. Logs omit endpoint tokens and encryption keys.
+
+Local regression checks:
+
+```sh
+php vendor/bin/phpunit tests/Feature/Notifications
+node --test tests/js/web-push.test.mjs
+npm run typecheck
+npm run build
+```
+
+For production database locking and endpoint comparison, run
+`php tests/Support/push-concurrency.php` against a test MySQL server. It uses the
+configured MySQL credentials, creates a random `arice_push_audit_...` database,
+runs four concurrent processes, and drops only that database in cleanup. The
+account needs permission to create/drop test databases. It sends no real pushes.
+
+Before release, use test customer accounts on an HTTPS deployment to verify:
+
+- Android Chrome: enable, close the app, receive a test and business notification,
+  and tap through to the correct order or points page.
+- iPhone/iPad with iOS/iPadOS 16.4+: Safari → Share → Add to Home Screen, open the
+  installed aRICE app, then tap Enable Notifications. Repeat closed-app delivery
+  and click testing. A normal Safari tab cannot enable this Home Screen flow.
+- Enable two devices for one customer. Both receive pushes; disabling or logging
+  out on one device leaves the other enabled. Already delivered notifications
+  cannot be recalled by logout.
+- Dismiss permission, deny/revoke permission, retry a failed save/removal, log in
+  through Inertia, and switch accounts on a shared browser. The displayed state
+  must match the saved subscription and the current account.

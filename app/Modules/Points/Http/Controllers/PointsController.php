@@ -4,6 +4,7 @@ namespace App\Modules\Points\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Logs\Services\ActivityLogger;
+use App\Modules\Logs\Services\SystemLogger;
 use App\Modules\Points\Http\Requests\AdjustPointsRequest;
 use App\Modules\Points\Models\PointsLedger;
 use App\Modules\Points\Services\PointsService;
@@ -17,7 +18,11 @@ use Inertia\Response;
 
 class PointsController extends Controller
 {
-    public function __construct(private readonly PointsService $points, private readonly ActivityLogger $activityLogs) {}
+    public function __construct(
+        private readonly PointsService $points,
+        private readonly ActivityLogger $activityLogs,
+        private readonly SystemLogger $systemLogs,
+    ) {}
 
     public function mine(Request $request): Response
     {
@@ -37,8 +42,10 @@ class PointsController extends Controller
     {
         abort_if($customer->is_admin, 404);
         $attributes = $request->validated();
+        /** @var array{action: string, description: string, ledger_id: int, metadata: array<string, mixed>}|null $systemLog */
+        $systemLog = null;
 
-        DB::transaction(function () use ($request, $customer, $attributes): void {
+        DB::transaction(function () use ($request, $customer, $attributes, &$systemLog): void {
             $lockedCustomer = User::query()->lockForUpdate()->findOrFail($customer->id);
             if (PointsLedger::query()->where('idempotency_key', $attributes['idempotency_key'])->exists()) {
                 return;
@@ -60,6 +67,22 @@ class PointsController extends Controller
                 $request->user(),
                 $attributes['idempotency_key'],
             );
+            $pointsChanged = abs($ledger->points);
+            $isAddition    = $ledger->points > 0;
+            $systemLog     = [
+                'action'      => $isAddition ? 'points_added' : 'points_deducted',
+                'description' => $isAddition ? "{$pointsChanged} points added by admin." : "{$pointsChanged} points deducted by admin.",
+                'ledger_id'   => $ledger->id,
+                'metadata'    => [
+                    'ledger_id'                                      => $ledger->id,
+                    'customer_id'                                    => $lockedCustomer->id,
+                    'admin_id'                                       => $request->user()->id,
+                    'previous_points'                                => $balance,
+                    $isAddition ? 'points_added' : 'points_deducted' => $pointsChanged,
+                    'new_points'                                     => $this->points->currentBalance($lockedCustomer),
+                    'reason'                                         => trim($attributes['reason']),
+                ],
+            ];
             $change = $points > 0 ? "+{$points}" : (string) $points;
             $this->activityLogs->record(
                 $request->user(),
@@ -69,6 +92,18 @@ class PointsController extends Controller
                 "Points adjusted for {$lockedCustomer->name}: {$change} points. Reason: ".trim($attributes['reason']),
             );
         });
+
+        if ($systemLog) {
+            $this->systemLogs->record(
+                type: 'activity',
+                action: $systemLog['action'],
+                description: $systemLog['description'],
+                module: 'points',
+                recordId: $systemLog['ledger_id'],
+                status: 'completed',
+                metadata: $systemLog['metadata'],
+            );
+        }
 
         return to_route('customers.show', $customer)->with('success', 'Points adjustment recorded successfully.');
     }

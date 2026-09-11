@@ -3,6 +3,7 @@
 namespace App\Modules\Users\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Logs\Services\SystemLogger;
 use App\Modules\Users\Http\Requests\StoreUserRequest;
 use App\Modules\Users\Http\Requests\UpdateUserRequest;
 use App\Modules\Users\Models\User;
@@ -13,6 +14,8 @@ use Inertia\Response;
 
 class UserController extends Controller
 {
+    public function __construct(private readonly SystemLogger $systemLogs) {}
+
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', User::class);
@@ -57,6 +60,16 @@ class UserController extends Controller
     {
         $user = User::create([...$request->validated(), 'is_admin' => true]);
 
+        $this->systemLogs->record(
+            type: 'security',
+            action: 'admin_account_created',
+            description: 'Administrator account created.',
+            module: 'users',
+            recordId: (int) $user->id,
+            status: 'created',
+            metadata: ['affected_user_id' => $user->id],
+        );
+
         return to_route('users.show', $user)->with('success', 'User created successfully.');
     }
 
@@ -83,13 +96,38 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
         abort_unless($user->is_admin, 404);
-        $attributes = $request->validated();
+        $attributes      = $request->validated();
+        $passwordChanged = $attributes['password'] !== null;
+        $changedFields   = [];
 
-        if ($attributes['password'] === null) {
+        foreach (['name', 'email'] as $field) {
+            if ($user->{$field} !== $attributes[$field]) {
+                $changedFields[] = $field;
+            }
+        }
+
+        if (! $passwordChanged) {
             unset($attributes['password']);
+        } else {
+            $changedFields[] = 'password';
         }
 
         $user->update($attributes);
+
+        if ($changedFields !== []) {
+            $this->systemLogs->record(
+                type: 'security',
+                action: 'admin_account_updated',
+                description: 'Administrator account updated.',
+                module: 'users',
+                recordId: (int) $user->id,
+                status: 'updated',
+                metadata: [
+                    'affected_user_id' => $user->id,
+                    'changed_fields'   => $changedFields,
+                ],
+            );
+        }
 
         return to_route('users.show', $user)->with('success', 'User updated successfully.');
     }
@@ -104,6 +142,16 @@ class UserController extends Controller
         }
 
         $user->delete();
+
+        $this->systemLogs->record(
+            type: 'security',
+            action: 'admin_account_deleted',
+            description: 'Administrator account deleted.',
+            module: 'users',
+            recordId: (int) $user->id,
+            status: 'deleted',
+            metadata: ['affected_user_id' => $user->id],
+        );
 
         return to_route('users.index')->with('success', 'User deleted successfully.');
     }

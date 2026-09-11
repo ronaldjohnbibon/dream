@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Logs\Console\PruneSystemLogs;
 use App\Modules\Notifications\Console\SendInstallmentReminders;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Inspiring;
@@ -8,6 +9,12 @@ use Illuminate\Support\Facades\Artisan;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+app(Schedule::class)
+    ->command(PruneSystemLogs::class)
+    ->dailyAt('02:00')
+    ->timezone('Asia/Manila')
+    ->withoutOverlapping();
 
 app(Schedule::class)
     ->command(SendInstallmentReminders::class)

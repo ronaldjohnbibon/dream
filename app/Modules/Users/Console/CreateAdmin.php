@@ -2,6 +2,7 @@
 
 namespace App\Modules\Users\Console;
 
+use App\Modules\Logs\Services\SystemLogger;
 use App\Modules\Users\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
@@ -14,7 +15,7 @@ class CreateAdmin extends Command
 
     protected $description = 'Create an administrator account';
 
-    public function handle(): int
+    public function handle(SystemLogger $systemLogs): int
     {
         $name     = $this->option('name') ?: $this->ask('Name');
         $email    = $this->option('email') ?: $this->ask('Email address');
@@ -39,12 +40,25 @@ class CreateAdmin extends Command
             return self::FAILURE;
         }
 
-        User::create([
+        $user = User::create([
             'name'     => $name,
             'email'    => $email,
             'password' => Hash::make($password),
             'is_admin' => true,
         ]);
+
+        $systemLogs->record(
+            type: 'security',
+            action: 'admin_account_created',
+            description: 'Administrator account created.',
+            module: 'users',
+            recordId: (int) $user->id,
+            status: 'created',
+            metadata: [
+                'affected_user_id' => $user->id,
+                'creation_source'  => 'console',
+            ],
+        );
 
         $this->info('Administrator account created.');
 

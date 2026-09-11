@@ -9,9 +9,10 @@
     ],
     "license": "MIT",
     "require": {
-        "ext-pdo_mysql": "*",
         "php": "^8.2",
+        "ext-pdo_mysql": "*",
         "inertiajs/inertia-laravel": "^2.0",
+        "laravel-notification-channels/webpush": "13.0.1",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "league/flysystem-aws-s3-v3": "^3.0",

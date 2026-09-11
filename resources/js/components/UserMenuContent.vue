@@ -7,14 +7,24 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import type { User } from '@/types'
-import { Link } from '@inertiajs/vue3'
+import { Link, router } from '@inertiajs/vue3'
+import { preparePushLogout } from '@/lib/push-notifications'
 import { LogOut, Settings } from 'lucide-vue-next'
+import { route } from 'ziggy-js'
 
 interface Props {
   user: User
 }
 
 defineProps<Props>()
+
+const logout = async () => {
+  const endpoint = await Promise.race([
+    preparePushLogout(),
+    new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 1500)),
+  ])
+  router.post(route('logout'), endpoint ? { push_endpoint: endpoint } : {})
+}
 </script>
 
 <template>
@@ -34,9 +44,9 @@ defineProps<Props>()
   </DropdownMenuGroup>
   <DropdownMenuSeparator />
   <DropdownMenuItem :as-child="true">
-    <Link class="block w-full" method="post" :href="route('logout')" as="button">
+    <button class="block w-full" type="button" @click="logout">
       <LogOut class="mr-2 h-4 w-4" />
       Log out
-    </Link>
+    </button>
   </DropdownMenuItem>
 </template>

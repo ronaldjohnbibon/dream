@@ -4,6 +4,7 @@ namespace App\Modules\Orders\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Logs\Services\ActivityLogger;
+use App\Modules\Logs\Services\SystemLogger;
 use App\Modules\Notifications\Services\CustomerNotificationService;
 use App\Modules\Orders\Http\Requests\RejectGcashPaymentRequest;
 use App\Modules\Orders\Http\Requests\ReviewGcashPaymentRequest;
@@ -31,6 +32,7 @@ class GcashPaymentController extends Controller
         private readonly PointsService $points,
         private readonly CustomerNotificationService $notifications,
         private readonly ActivityLogger $activityLogs,
+        private readonly SystemLogger $systemLogs,
     ) {}
 
     public function index(Request $request): Response
@@ -93,7 +95,7 @@ class GcashPaymentController extends Controller
 
         try {
             $payment = DB::transaction(function () use ($request, $order, $attributes, &$screenshotPath, &$created): GcashPayment {
-                $lockedOrder     = Order::query()->lockForUpdate()->findOrFail($order->id);
+                $lockedOrder = Order::query()->lockForUpdate()->findOrFail($order->id);
                 $this->ensureCustomerOwnsOrder($request, $lockedOrder);
                 $existingPayment = GcashPayment::query()
                     ->where('order_id', $lockedOrder->id)
@@ -163,6 +165,23 @@ class GcashPaymentController extends Controller
         }
 
         if ($created) {
+            $this->systemLogs->record(
+                type: 'activity',
+                action: 'payment_submitted',
+                description: "GCash payment #{$payment->id} submitted for verification.",
+                module: 'payments',
+                recordId: $payment->id,
+                status: $payment->status,
+                metadata: [
+                    'payment_id'       => $payment->id,
+                    'order_id'         => $payment->order_id,
+                    'customer_id'      => $payment->customer_id,
+                    'amount'           => $payment->amount,
+                    'reference_number' => $payment->reference_number,
+                ],
+            );
+        }
+        if ($created) {
             $this->notifications->paymentSubmitted($payment->load(['order', 'customer']));
         }
 
@@ -193,9 +212,12 @@ class GcashPaymentController extends Controller
     {
         /** @var list<int> $earnedLedgerIds */
         $earnedLedgerIds = [];
+        /** @var list<array{action: string, description: string, ledger_id: int, metadata: array<string, mixed>}> $pointsLogs */
+        $pointsLogs       = [];
+        $pautangCompleted = false;
 
         try {
-            DB::transaction(function () use ($request, $gcashPayment, &$earnedLedgerIds): void {
+            DB::transaction(function () use ($request, $gcashPayment, &$earnedLedgerIds, &$pointsLogs, &$pautangCompleted): void {
                 $payment = GcashPayment::query()->lockForUpdate()->findOrFail($gcashPayment->id);
                 $this->ensurePending($payment);
                 $order       = Order::query()->lockForUpdate()->findOrFail($payment->order_id);
@@ -226,6 +248,7 @@ class GcashPaymentController extends Controller
                 }
 
                 $this->updatePautangOrderTotals($order, $installments);
+                $pautangCompleted = $order->payment_status === 'paid';
 
                 $payment->update([
                     'status'                    => 'approved',
@@ -242,14 +265,45 @@ class GcashPaymentController extends Controller
                     "GCash payment #{$payment->id} for order {$order->order_number} approved.",
                 );
 
+                $previousPoints    = $this->points->currentBalance($order->customer_id);
                 $installmentLedger = $this->points->awardOnTimeInstallmentPayment($order, $installment, $payment);
                 if ($installmentLedger) {
                     $earnedLedgerIds[] = $installmentLedger->id;
+                    $pointsLogs[]      = [
+                        'action'      => 'on_time_payment_bonus_earned',
+                        'description' => "{$installmentLedger->points} on-time payment bonus points added.",
+                        'ledger_id'   => $installmentLedger->id,
+                        'metadata'    => [
+                            'ledger_id'              => $installmentLedger->id,
+                            'customer_id'            => $installmentLedger->customer_id,
+                            'order_id'               => $installmentLedger->order_id,
+                            'pautang_installment_id' => $installmentLedger->pautang_installment_id,
+                            'payment_id'             => $payment->id,
+                            'previous_points'        => $previousPoints,
+                            'points_added'           => $installmentLedger->points,
+                            'new_points'             => $this->points->currentBalance($order->customer_id),
+                        ],
+                    ];
                 }
 
+                $previousPoints   = $this->points->currentBalance($order->customer_id);
                 $completionLedger = $this->points->awardCompletedOrder($order);
                 if ($completionLedger) {
                     $earnedLedgerIds[] = $completionLedger->id;
+                    $pointsLogs[]      = [
+                        'action'      => 'points_earned',
+                        'description' => "{$completionLedger->points} completed order points added.",
+                        'ledger_id'   => $completionLedger->id,
+                        'metadata'    => [
+                            'ledger_id'       => $completionLedger->id,
+                            'customer_id'     => $completionLedger->customer_id,
+                            'order_id'        => $completionLedger->order_id,
+                            'payment_id'      => $payment->id,
+                            'previous_points' => $previousPoints,
+                            'points_added'    => $completionLedger->points,
+                            'new_points'      => $this->points->currentBalance($order->customer_id),
+                        ],
+                    ];
                 }
             });
         } catch (QueryException $exception) {
@@ -260,7 +314,56 @@ class GcashPaymentController extends Controller
             throw $exception;
         }
 
-        $this->notifications->paymentApproved($gcashPayment->fresh(['order', 'customer']));
+        $payment = $gcashPayment->fresh(['order', 'customer']);
+        $this->systemLogs->record(
+            type: 'activity',
+            action: 'payment_approved',
+            description: "GCash payment #{$payment->id} approved for order {$payment->order->order_number}.",
+            module: 'payments',
+            recordId: $payment->id,
+            status: $payment->status,
+            metadata: [
+                'payment_id'       => $payment->id,
+                'order_id'         => $payment->order_id,
+                'customer_id'      => $payment->customer_id,
+                'amount'           => $payment->amount,
+                'reference_number' => $payment->reference_number,
+                'previous_status'  => 'pending_verification',
+                'new_status'       => 'approved',
+            ],
+        );
+        if ($pautangCompleted) {
+            $this->systemLogs->record(
+                type: 'activity',
+                action: 'pautang_completed',
+                description: "Pautang order {$payment->order->order_number} fully paid.",
+                module: 'pautang',
+                recordId: $payment->order_id,
+                status: 'paid',
+                metadata: [
+                    'order_id'         => $payment->order_id,
+                    'payment_id'       => $payment->id,
+                    'customer_id'      => $payment->customer_id,
+                    'amount'           => $payment->amount,
+                    'reference_number' => $payment->reference_number,
+                ],
+            );
+        }
+        foreach ($pointsLogs as $pointsLog) {
+            $this->systemLogs->record(
+                type: 'activity',
+                action: $pointsLog['action'],
+                description: $pointsLog['description'],
+                module: 'points',
+                recordId: $pointsLog['ledger_id'],
+                status: 'completed',
+                metadata: $pointsLog['metadata'],
+            );
+        }
+        $this->notifications->paymentApproved($payment);
+        if ($pautangCompleted) {
+            $this->notifications->pautangCompleted(Order::query()->with('customer')->findOrFail($gcashPayment->order_id));
+        }
         foreach ($earnedLedgerIds as $earnedLedgerId) {
             $this->notifications->pointsEarned(PointsLedger::query()->with('order')->findOrFail($earnedLedgerId));
         }
@@ -289,7 +392,25 @@ class GcashPaymentController extends Controller
             );
         });
 
-        $this->notifications->paymentRejected($gcashPayment->fresh(['order', 'customer']));
+        $payment = $gcashPayment->fresh(['order', 'customer']);
+        $this->systemLogs->record(
+            type: 'activity',
+            action: 'payment_rejected',
+            description: "GCash payment #{$payment->id} rejected for order {$payment->order->order_number}.",
+            module: 'payments',
+            recordId: $payment->id,
+            status: $payment->status,
+            metadata: [
+                'payment_id'       => $payment->id,
+                'order_id'         => $payment->order_id,
+                'customer_id'      => $payment->customer_id,
+                'amount'           => $payment->amount,
+                'reference_number' => $payment->reference_number,
+                'previous_status'  => 'pending_verification',
+                'new_status'       => 'rejected',
+            ],
+        );
+        $this->notifications->paymentRejected($payment);
 
         return to_route('gcash-payments.show', $gcashPayment)->with('success', 'GCash payment rejected.');
     }
@@ -306,7 +427,7 @@ class GcashPaymentController extends Controller
 
     private function requestedInstallment(int $installmentId, Order $order): PautangInstallment
     {
-        $installment   = $order->pautangInstallments->firstWhere('id', $installmentId);
+        $installment = $order->pautangInstallments->firstWhere('id', $installmentId);
         if (! $installment) {
             throw ValidationException::withMessages(['installment' => 'Choose an unpaid pautang installment.']);
         }

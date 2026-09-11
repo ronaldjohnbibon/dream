@@ -8,6 +8,7 @@ use App\Modules\Delivery\Models\DeliveryArea;
 use App\Modules\Delivery\Services\DeliveryPricingService;
 use App\Modules\Inventory\Models\RiceProduct;
 use App\Modules\Logs\Services\ActivityLogger;
+use App\Modules\Logs\Services\SystemLogger;
 use App\Modules\Notifications\Services\CustomerNotificationService;
 use App\Modules\Orders\Http\Requests\StoreOrderRequest;
 use App\Modules\Orders\Models\GcashPayment;
@@ -31,6 +32,7 @@ class OrderController extends Controller
         private readonly CustomerNotificationService $notifications,
         private readonly DeliveryPricingService $deliveryPricing,
         private readonly ActivityLogger $activityLogs,
+        private readonly SystemLogger $systemLogs,
     ) {}
 
     public function index(Request $request): Response
@@ -95,9 +97,11 @@ class OrderController extends Controller
     {
         $attributes     = $request->validated();
         $redeemedPoints = null;
-        $created        = false;
+        /** @var array{action: string, description: string, ledger_id: int, metadata: array<string, mixed>}|null $pointsLog */
+        $pointsLog = null;
+        $created   = false;
 
-        $order = DB::transaction(function () use ($attributes, $request, &$redeemedPoints, &$created): Order {
+        $order = DB::transaction(function () use ($attributes, $request, &$redeemedPoints, &$pointsLog, &$created): Order {
             $customer      = User::query()->lockForUpdate()->findOrFail($request->user()->id);
             $existingOrder = Order::query()
                 ->where('customer_id', $customer->id)
@@ -145,8 +149,24 @@ class OrderController extends Controller
             $order->update(['order_number' => 'ORD-'.str_pad((string) $order->id, 6, '0', STR_PAD_LEFT)]);
             $order->delivery()->create(['customer_id' => $customer->id, 'delivery_area_id' => $area->id, 'delivery_area_name' => $area->name, 'delivery_address' => $attributes['delivery_address'], 'delivery_fee' => number_format($fee, 2, '.', ''), 'status' => 'pending', 'notes' => $attributes['notes'] ?? null]);
             if ($pointsToUse > 0) {
+                $previousPoints = $this->points->currentBalance($customer);
                 $ledger         = $this->points->redeemOrder($order, $pointsToUse);
-                $redeemedPoints = $ledger->wasRecentlyCreated ? $pointsToUse : null;
+                if ($ledger->wasRecentlyCreated) {
+                    $redeemedPoints = $pointsToUse;
+                    $pointsLog      = [
+                        'action'      => 'points_redeemed',
+                        'description' => abs($ledger->points)." points redeemed for order {$order->order_number}.",
+                        'ledger_id'   => $ledger->id,
+                        'metadata'    => [
+                            'ledger_id'       => $ledger->id,
+                            'customer_id'     => $ledger->customer_id,
+                            'order_id'        => $ledger->order_id,
+                            'previous_points' => $previousPoints,
+                            'points_deducted' => abs($ledger->points),
+                            'new_points'      => $this->points->currentBalance($customer),
+                        ],
+                    ];
+                }
             }
             $product->update(['available_stock' => $previousStock - $quantity, 'reserved_stock' => $product->reserved_stock + $quantity]);
             $product->stockMovements()->create(['quantity' => $quantity, 'type' => 'order', 'previous_stock' => $previousStock, 'new_stock' => $previousStock - $quantity, 'order_id' => $order->id, 'notes' => "Order {$order->order_number} reserved.", 'user_id' => $customer->id]);
@@ -162,10 +182,38 @@ class OrderController extends Controller
 
             return $order;
         });
+        if ($created) {
+            $this->systemLogs->record(
+                type: 'activity',
+                action: 'order_submitted',
+                description: "Pautang order {$order->order_number} submitted.",
+                module: 'orders',
+                recordId: $order->id,
+                status: $order->order_status,
+                metadata: [
+                    'order_id'     => $order->id,
+                    'customer_id'  => $order->customer_id,
+                    'payment_type' => $order->payment_type,
+                    'final_amount' => $order->final_amount,
+                ],
+            );
+        }
+        if ($pointsLog) {
+            $this->systemLogs->record(
+                type: 'activity',
+                action: $pointsLog['action'],
+                description: $pointsLog['description'],
+                module: 'points',
+                recordId: $pointsLog['ledger_id'],
+                status: 'completed',
+                metadata: $pointsLog['metadata'],
+            );
+        }
         if ($created && $redeemedPoints) {
             $this->notifications->pointsRedeemed($order, $redeemedPoints);
         }
         if ($created) {
+            $this->notifications->orderSubmitted($order);
             $this->notifications->newOrder($order);
         }
 

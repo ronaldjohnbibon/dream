@@ -24,6 +24,7 @@ import {
   LayoutGrid,
   MapPin,
   PackageSearch,
+  ShieldCheck,
   ShoppingCart,
   Truck,
   Users,
@@ -49,6 +50,7 @@ const mainNavItems = computed<NavItem[]>(() => {
     items.push({ title: 'Pautang', href: route('pautang.index'), icon: HandCoins })
     items.push({ title: 'Reports', href: route('reports.index'), icon: ChartNoAxesCombined })
     items.push({ title: 'Logs', href: route('activity-logs.index'), icon: ClipboardList })
+    items.push({ title: 'System logs', href: route('system-logs.index'), icon: ShieldCheck })
     items.push({ title: 'Notifications', href: route('notifications.index'), icon: Bell })
   } else {
     items.push({ title: 'My orders', href: route('orders.index'), icon: ShoppingCart })
