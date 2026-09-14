@@ -2,10 +2,11 @@
 import FormField from '@/components/shared/FormField.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import AppLayout from '@/layouts/AppLayout.vue'
 import type { BreadcrumbItem } from '@/types'
 import { Head, Link, useForm } from '@inertiajs/vue3'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps<{
   order: { id: number; order_number: string; remaining_balance: string }
@@ -38,6 +39,7 @@ const form = useForm({
 const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' })
 const paymentLimit = computed(() => props.installment.submission_limit)
 const paymentError = computed(() => (form.errors as Record<string, string>).payment)
+const isQrPreviewOpen = ref(false)
 
 const submit = () =>
   form.post(route('gcash-payments.store', { order: props.order.id }), { forceFormData: true })
@@ -67,12 +69,21 @@ const submit = () =>
               of payment.</CardDescription
             ></CardHeader
           >
-          <CardContent
-            ><img
-              :src="gcash.qr_code_url"
-              alt="GCash payment QR code"
-              class="mx-auto max-h-96 rounded-lg border object-contain"
-          /></CardContent>
+          <CardContent>
+            <button
+              type="button"
+              class="group mx-auto block touch-manipulation rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-label="Open GCash payment QR code full-screen preview"
+              @click="isQrPreviewOpen = true"
+            >
+              <img
+                :src="gcash.qr_code_url"
+                alt="GCash payment QR code"
+                class="max-h-96 rounded-lg border object-contain transition-opacity group-hover:opacity-90"
+              />
+            </button>
+            <p class="mt-3 text-center text-xs text-muted-foreground">Tap the QR code to view full screen.</p>
+          </CardContent>
         </Card>
 
         <Card>
@@ -153,5 +164,21 @@ const submit = () =>
         </Card>
       </div>
     </div>
+
+    <Dialog :open="isQrPreviewOpen" @update:open="isQrPreviewOpen = $event">
+      <DialogContent
+        class="inset-0 h-[100dvh] max-w-none translate-x-0 translate-y-0 gap-0 border-0 bg-black p-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] text-white sm:rounded-none [&>button:last-child]:right-[max(1rem,env(safe-area-inset-right))] [&>button:last-child]:top-[max(1rem,env(safe-area-inset-top))] [&>button:last-child]:rounded-full [&>button:last-child]:bg-black/70 [&>button:last-child]:p-3 [&>button:last-child]:opacity-100"
+      >
+        <DialogTitle class="sr-only">GCash payment QR code</DialogTitle>
+        <div class="flex min-h-0 flex-1 items-center justify-center py-12">
+          <img
+            :src="gcash.qr_code_url"
+            alt="GCash payment QR code"
+            class="max-h-full max-w-full select-none object-contain"
+          />
+        </div>
+        <p class="text-center text-sm text-white/80">Tap outside or use the close button to return.</p>
+      </DialogContent>
+    </Dialog>
   </AppLayout>
 </template>
