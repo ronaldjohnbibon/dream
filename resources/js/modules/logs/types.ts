@@ -46,9 +46,57 @@ export interface SystemLogFilters {
   action: string
   user_id: number | null
   status: string
+  severity: 'all' | 'error' | 'warning'
+  category:
+    | 'all'
+    | 'payments'
+    | 'orders'
+    | 'points'
+    | 'notifications'
+    | 'security'
+    | 'authentication'
+    | 'scheduler'
+    | 'system'
 }
 
 export interface PaginatedSystemLogs {
   data: SystemLog[]
   links: { label: string; url: string | null; active: boolean }[]
+}
+
+export interface SystemLogSummary {
+  total_events: number
+  errors: number
+  warnings: number
+  security_events: number
+  failed_notifications: number
+  successful_notifications: number
+}
+
+export interface SystemLogAttentionItem {
+  action: string
+  module: string | null
+  count: number
+  latest_at: string
+}
+
+export interface SystemLogHealthSignal {
+  key: 'web_push' | 'scheduler' | 'security'
+  label: string
+  state: 'attention' | 'recent_success' | 'no_data'
+  count: number
+  latest_at: string | null
+}
+
+export interface SystemLogCategory {
+  key: Exclude<SystemLogFilters['category'], 'all'>
+  label: string
+  logs: SystemLog[]
+}
+
+export interface SystemLogsDashboard {
+  summary: SystemLogSummary
+  attention: SystemLogAttentionItem[]
+  health: SystemLogHealthSignal[]
+  categories: SystemLogCategory[]
 }
